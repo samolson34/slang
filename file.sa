@@ -1,0 +1,43 @@
+def no-arg
+    println 0
+end
+
+def two-arg(int one, bool two)
+    x = one + 1
+    if two
+        println x
+    end
+end
+
+def call-func
+    no-arg
+end
+
+def empty-func
+end
+
+def uncalled
+    println -60
+end
+
+no-arg
+two-arg(5 + 5 , true)
+call-func
+empty-func
+
+x = false
+println x
+x = -13
+println x
+
+two-arg(x, x > 0)
+
+println(4 > 2 && 9 - -3 == 10)
+println(9 - -3 == 10 || 4 > 2)
+
+if x > -10
+    print 3
+    print 1
+    print 1
+    println 0
+end

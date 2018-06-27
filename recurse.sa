@@ -1,0 +1,61 @@
+def double(int a)
+    println a * 2
+end
+
+def recurse(int a)
+    double(a)
+    if a > 0
+        recurse(a - 1)
+    end
+end
+
+def equal?(int a, int b)
+    println a == b
+end
+
+def even?(int a)
+    println a % 2 == 0
+end
+
+def loop(int a)
+    while a > 0
+        print a
+        even?(a)
+        a = a - 1
+    end
+end
+
+def prime?(int a)
+    prime = true
+    
+    i = 2
+
+    while (prime && i < a)
+        if a % i == 0
+            prime = false
+            print i
+        end
+        i = i + 1
+    end
+    println prime
+end
+
+i = 1
+    while i < 10
+    println i
+    prime?(i)
+    i = i + 1
+end
+
+println 1382851931
+prime?(1382851931)
+
+#recurse(14)
+#loop(11)
+#equal?(4)
+#even?(4)
+
+b = false
+if !b
+    println !b
+end
