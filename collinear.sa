@@ -11,7 +11,7 @@ def collinear?(
     dx2 = x3 - x2
     dy2 = y3 - y2
 
-    println dx1 / dy1 == dx2 / dy2
+    println (dx1 / dy1 == dx2 / dy2)
 end
 
 def midpoint(int x1, int y1, int x2, int y2)
@@ -28,8 +28,39 @@ def abs(int a)
     end
 end
 
+def max(int a, int b)
+    if a >= b
+        println a
+    end
+    if b > a
+        println b
+    end
+end
+
+def pow(int a, int b)
+    ans = 1
+
+    while b > 0
+        ans = ans * a
+        b = b - 1
+    end
+
+    println ans
+end
+
 collinear?(2, 0, 0, 1, 0, 2)
 midpoint(-3, 6, 1, -2)
 abs(4)
 abs(-3)
 abs(0)
+max(4, -5)
+pow(-4, 2)
+
+# false
+# -1
+# 2
+# 4
+# 3
+# 0
+# 4
+# 16
