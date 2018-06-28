@@ -27,15 +27,19 @@ end
 
 def prime?(int a)
     prime = true
-    
-    i = 2
+
+    if a < 2 || a % 2 == 0
+        prime = false
+    end
+
+    i = 3
 
     while (prime && i < a)
         if a % i == 0
             prime = false
             print i
         end
-        i = i + 1
+        i = i + 2
     end
     println prime
 end
@@ -47,8 +51,9 @@ i = 1
     i = i + 1
 end
 
-println 1382851931
-prime?(1382851931)
+a = 26052001
+println a
+prime?(a)
 
 #recurse(14)
 #loop(11)
