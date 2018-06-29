@@ -55,12 +55,21 @@ a = 26052001
 println a
 prime?(a)
 
-#recurse(14)
-#loop(11)
-#equal?(4)
-#even?(4)
+recurse(14)
+loop(11)
+equal?(4, 4)
+even?(5)
 
 b = false
 if !b
     println !b
 end
+
+# <1-9 and whether prime>
+# 26052001
+# true
+# <14-0 doubled>
+# <11-1 and whether even>
+# true
+# false
+# true
