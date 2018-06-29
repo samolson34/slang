@@ -1,0 +1,7 @@
+def timeChange(int tempo, int numer, int denom)
+    println tempo * numer / denom
+end
+
+timeChange(100, 2, 3)
+timeChange(66, 3, 2)
+timeChange(100, 4, 3)

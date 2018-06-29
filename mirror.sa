@@ -1,0 +1,22 @@
+def mirror(int x, int y, bool xAxis, bool yAxis)
+    if xAxis
+        x = -x
+    end
+    if yAxis
+        y = -y
+    end
+
+    println x
+    println y
+end
+
+mirror(3, 4, true, false)
+mirror(7, -7, false, false)
+mirror(1, 8, true, true)
+
+# -3
+# 4
+# 7
+# -7
+# -1
+# -8
