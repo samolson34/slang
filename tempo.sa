@@ -1,7 +1,20 @@
-def timeChange(int tempo, int numer, int denom)
-    println tempo * numer / denom
+#def timeChange(int tempo, int numer, int denom)
+#    println tempo * numer / denom
+#end
+#
+#timeChange(100, 2, 3)
+#timeChange(66, 3, 2)
+#timeChange(100, 4, 3)
+
+i = 0
+while i < 3
+#    def abc
+#        println 0
+#    end
+    d = i * 2
+    println d
+
+    i = i + 1
 end
 
-timeChange(100, 2, 3)
-timeChange(66, 3, 2)
-timeChange(100, 4, 3)
+println d
