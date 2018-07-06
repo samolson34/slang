@@ -8,7 +8,7 @@ class Parser
     @i = 0
     @variables = {} of String => VT
     @functions = {} of String => TypeSignature
-    @inDef = false
+    @noDef = false
     @defVars = {} of String => VT
 
     def initialize(@tokens : Array(Token)) end
@@ -77,6 +77,7 @@ class Parser
 
     def conditional
         @i += 1
+        #@noDef = true
         
         condition = expression
         unless condition.is_a? BooleanExpression
@@ -86,19 +87,25 @@ class Parser
 
         body = [] of Statement
         until curToken.tokenType == TT::End
+            if curToken.tokenType == TT::EOF
+                STDERR.puts "Expected end after if, not EOF."
+                exit FAIL
+            end
             body << statement
         end
         # Check for end?
         # Check for else? else if?
 
         @i += 1
+        #@noDef = false
 
         If.new condition, Block.new body
     end
 
     def whileLoop
         @i += 1
-        
+        #@noDef = true
+
         condition = expression
         unless condition.is_a? BooleanExpression
             STDERR.puts "Expected BooleanExpression, not #{condition.class}. #{@i}"
@@ -107,23 +114,28 @@ class Parser
 
         body = [] of Statement
         until curToken.tokenType == TT::End
+            if curToken.tokenType == TT::EOF
+                STDERR.puts "Expected end after while, not EOF."
+                exit FAIL
+            end
             body << statement
         end
         # Check for end?
 
         @i += 1
+        #@noDef = false
 
         While.new condition, Block.new body
     end
 
     def define
-        if @inDef
-           STDERR.puts "Can't define function inside def."
+        if @noDef
+           STDERR.puts "Must define function at global scope."
            exit FAIL
         end
 
         @i += 1
-        @inDef = true
+        @noDef = true
 
         unless curToken.tokenType == TT::Identifier
             STDERR.puts "Identifier expected after def, not #{curToken.code}. #{@i}" 
@@ -138,7 +150,7 @@ class Parser
 
         if curToken.tokenType == TT::ParenthesisL
             @i += 1
-            
+
             loop do
                 if curToken.tokenType == TT::Type
                     if curToken.code == "int"
@@ -165,6 +177,7 @@ class Parser
                 break unless curToken.tokenType == TT::Comma
                 @i += 1
             end
+
             unless curToken.tokenType == TT::ParenthesisR
                 STDERR.puts "Expected ) after formals. #{@i}"
                 exit FAIL
@@ -176,12 +189,16 @@ class Parser
 
         statements = [] of Statement
         until curToken.tokenType == TT::End
+            if curToken.tokenType == TT::EOF
+                STDERR.puts "Expected end after def, not EOF."
+                exit FAIL
+            end
             statements << statement
         end
-        # Check for end?
+        # Check for end? EOF?
 
         @i += 1
-        @inDef = false
+        @noDef = false
         @defVars.clear
 
         Definition.new name, formals, Block.new statements
@@ -192,7 +209,7 @@ class Parser
         r = expression
 
         if r.is_a? IntegerExpression || r.is_a? IntegerVariable
-            if @inDef
+            if @noDef
                 @defVars[id.code] = VT::Integer
             else
                 @variables[id.code] = VT::Integer
@@ -201,7 +218,7 @@ class Parser
             Assignment.new id.code, VT::Integer, r
 
         elsif r.is_a? BooleanExpression || r.is_a? BooleanVariable
-            if @inDef
+            if @noDef
                 @defVars[id.code] = VT::Boolean
             else
                 @variables[id.code] = VT::Boolean
@@ -485,13 +502,14 @@ class Parser
         elsif curToken.tokenType == TT::Identifier
             id = curToken
             @i += 1
-            if !@inDef && @variables.has_key? id.code
+
+            if !@noDef && @variables.has_key? id.code
                 if @variables[id.code].is_a? VT::Integer
                     IntegerVariable.new id.code
                 else
                     BooleanVariable.new id.code
                 end
-            elsif @inDef && @defVars.has_key? id.code 
+            elsif @noDef && @defVars.has_key? id.code 
                 if @defVars[id.code].is_a? VT::Integer
                     IntegerVariable.new id.code
                 else
