@@ -25,9 +25,26 @@ class Function
         Void
     end
 
+    class Formal
+        getter name, type
+
+        def initialize(
+            @name : String,
+            @type : Variable::VariableType
+        ) end
+    end
+
     getter formals, body
 
-    def initialize(@formals : Array(String), @body : Block) end
+    def initialize(
+        @formals : Array(Formal),
+        @body : Block,
+        @returnType : ReturnType
+    ) end
+
+    def numArgs
+        formals.size
+    end
 end
 
 class Block
@@ -103,12 +120,13 @@ end
 class Definition < Statement
     def initialize(
         @name : String,
-        @formals : Array(String),
-        @body : Block
+        @formals : Array(Function::Formal),
+        @body : Block,
+        @returnType : Function::ReturnType
     ) end
 
     def evaluate(env)
-        env.functions[@name] = Function.new(@formals, @body)
+        env.functions[@name] = Function.new(@formals, @body, @returnType)
     end
 end
 
@@ -124,13 +142,14 @@ class Call < Statement
         )
 
         @actuals.each_with_index do |actual, i|
-            formal = func.formals[i]
             if actual.is_a? IntegerExpression
                 t = Variable::VariableType::Integer
             else
                 t = Variable::VariableType::Boolean
             end
-            scope.variables[formal] = Variable.new(t, actual.evaluate env)
+
+            name = func.formals[i].name
+            scope.variables[name] = Variable.new(t, actual.evaluate env)
         end
 
         func.body.evaluate scope

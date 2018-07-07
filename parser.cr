@@ -7,21 +7,11 @@ class Parser
 
     @i = 0
     @variables = {} of String => VT
-    @functions = {} of String => TypeSignature
+    @functions = {} of String => Function
     @noDef = false
     @defVars = {} of String => VT
 
     def initialize(@tokens : Array(Token)) end
-
-    class TypeSignature
-        getter formalTypes
-
-        def initialize(@formalTypes : Array(VT), @returnType : RT) end
-
-        def numArgs
-            formalTypes.size
-        end
-    end
 
     def curToken
         @tokens[@i]
@@ -145,8 +135,7 @@ class Parser
         name = curToken.code
         @i += 1
 
-        formals = [] of String
-        formalTypes = [] of VT
+        formals = [] of Function::Formal
 
         if curToken.tokenType == TT::ParenthesisL
             @i += 1
@@ -165,9 +154,8 @@ class Parser
                 end
 
                 if curToken.tokenType == TT::Identifier
-                    formals << curToken.code
+                    formals << Function::Formal.new curToken.code, t
                     @defVars[curToken.code] = t
-                    formalTypes << t
                     @i += 1
                 else
                     STDERR.puts "Parameters expected in (). #{@i}"
@@ -185,9 +173,9 @@ class Parser
             @i += 1
         end
 
-        @functions[name] = TypeSignature.new formalTypes, RT::Void
-
         statements = [] of Statement
+        @functions[name] = Function.new formals, (Block.new statements), RT::Void
+
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
                 STDERR.puts "Expected end after def, not EOF."
@@ -201,7 +189,7 @@ class Parser
         @noDef = false
         @defVars.clear
 
-        Definition.new name, formals, Block.new statements
+        Definition.new name, formals, (Block.new statements), RT::Void
     end
 
     def assign(id)
@@ -248,7 +236,7 @@ class Parser
 
             loop do
                 arg = expression
-                t = @functions[id.code].formalTypes[j]
+                t = @functions[id.code].formals[j].type
 
                 if (arg.is_a? IntegerExpression && t.is_a? VT::Integer) ||
                         (arg.is_a? BooleanExpression && t.is_a? VT::Boolean)
@@ -305,7 +293,7 @@ class Parser
             unless a.is_a? BooleanExpression || a.is_a? BooleanVariable
                 operatorRaise operator, a, BooleanExpression, "L"
                 # Crystal for some reason doesn't recognize operatorRaise as NoReturn
-                # when assigning type to a, b
+                # when assigning type to a, b (fixed?)
                 exit
             end
 

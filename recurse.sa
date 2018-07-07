@@ -28,7 +28,7 @@ end
 def prime?(int a)
     prime = true
 
-    if a < 2 || a % 2 == 0
+    if a < 2 || (a > 2 && a % 2 == 0)
         prime = false
     end
 
