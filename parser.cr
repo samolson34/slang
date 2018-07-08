@@ -290,6 +290,9 @@ class Parser
             operator = curToken
             @i += 1
 
+            # I don't remember why I check if it is a *Expression OR a *Variable. A
+            # *Variable IS a *Expression so I should be able to just check for
+            # *Expression
             unless a.is_a? BooleanExpression || a.is_a? BooleanVariable
                 operatorRaise operator, a, BooleanExpression, "L"
                 # Crystal for some reason doesn't recognize operatorRaise as NoReturn
@@ -446,6 +449,7 @@ class Parser
                 STDERR.puts "#{@i} #{a} #{e.message}"
                 exit FAIL
             end
+            # Why do I have this rescue?
         end
         a
     end
