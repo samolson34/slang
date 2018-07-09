@@ -9,12 +9,16 @@
 i = 0
 while i < 3
 #    def abc
-#        println 0
-#    end
+ #       println 0
+  #  end
     d = i * 2
     println d
 
     i = i + 1
 end
 
-println d
+println i
+#println d
+
+# Uninitialized variable: d
+println 0 / 0

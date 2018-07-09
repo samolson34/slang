@@ -6,10 +6,6 @@ class Parser
     FAIL = 1
 
     @i = 0
-    @variables = {} of String => VT
-    @functions = {} of String => Function
-    @noDef = false
-    @defVars = {} of String => VT
 
     def initialize(@tokens : Array(Token)) end
 
@@ -26,32 +22,40 @@ class Parser
 
     def parse
         statements = [] of Statement
+        env = Environment.new
 
         until curToken.tokenType == TT::EOF
-            statements << statement
+            statements << statement env
         end
 
         Block.new statements
     end
 
-    def statement
+    def statement(env)
         if curToken.tokenType == TT::Print
             @i += 1
-            Print.new expression
+            Print.new expression env
         elsif curToken.tokenType == TT::Println
             @i += 1
-            Println.new expression
+            Println.new expression env
         elsif curToken.tokenType == TT::If
-            conditional
+            scope = Environment.new env.variables.dup, env.functions, env.level + 1
+            conditional scope
         elsif curToken.tokenType == TT::While
-            whileLoop
+            scope = Environment.new env.variables.dup, env.functions, env.level + 1
+            whileLoop scope
         elsif curToken.tokenType == TT::Define
-            define
+            scope = Environment.new(
+                {} of String => Variable,
+                env.functions,
+                env.level + 1
+            )
+            define scope
         elsif curToken.tokenType == TT::Identifier
             if curToken(1).tokenType == TT::Assign
-                assign
-            elsif @functions.has_key? curToken.code
-                call
+                assign env
+            elsif env.functions.has_key? curToken.code
+                call env
             else
                 STDERR.puts "Unexpected identifier: #{@i} #{curToken.code}"
                 exit FAIL
@@ -62,11 +66,10 @@ class Parser
         end
     end
 
-    def conditional
+    def conditional(env)
         @i += 1
-        #@noDef = true
         
-        condition = expression
+        condition = expression env
         unless condition.is_a? BooleanExpression
             STDERR.puts "Expected BooleanExpression, not #{condition.class}. #{@i}"
             exit FAIL
@@ -78,22 +81,19 @@ class Parser
                 STDERR.puts "Expected end after if, not EOF."
                 exit FAIL
             end
-            body << statement
+            body << statement env
         end
-        # Check for end?
         # Check for else? else if?
 
         @i += 1
-        #@noDef = false
 
         If.new condition, Block.new body
     end
 
-    def whileLoop
+    def whileLoop(env)
         @i += 1
-        #@noDef = true
 
-        condition = expression
+        condition = expression env
         unless condition.is_a? BooleanExpression
             STDERR.puts "Expected BooleanExpression, not #{condition.class}. #{@i}"
             exit FAIL
@@ -105,24 +105,21 @@ class Parser
                 STDERR.puts "Expected end after while, not EOF."
                 exit FAIL
             end
-            body << statement
+            body << statement env
         end
-        # Check for end?
 
         @i += 1
-        #@noDef = false
 
         While.new condition, Block.new body
     end
 
-    def define
-        if @noDef
+    def define(env)
+        if env.level > 1
            STDERR.puts "Must define function at global scope."
            exit FAIL
         end
 
         @i += 1
-        @noDef = true
 
         unless curToken.tokenType == TT::Identifier
             STDERR.puts "Identifier expected after def, not #{curToken.code}. #{@i}" 
@@ -140,9 +137,9 @@ class Parser
             loop do
                 if curToken.tokenType == TT::Type
                     if curToken.code == "int"
-                        t = VT::Integer
+                        v = Variable.new VT::Integer, 0
                     else
-                        t = VT::Boolean
+                        v = Variable.new VT::Boolean, false
                     end
                     @i += 1
                 else
@@ -151,8 +148,8 @@ class Parser
                 end
 
                 if curToken.tokenType == TT::Identifier
-                    formals << Function::Formal.new curToken.code, t
-                    @defVars[curToken.code] = t
+                    formals << Function::Formal.new curToken.code, v.type
+                    env.variables[curToken.code] = v
                     @i += 1
                 else
                     STDERR.puts "Parameters expected in (). #{@i}"
@@ -171,46 +168,46 @@ class Parser
         end
 
         statements = [] of Statement
-        @functions[name] = Function.new formals, (Block.new statements), RT::Void
+        env.functions[name] = Function.new formals, (Block.new statements), RT::Void
 
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
                 STDERR.puts "Expected end after def, not EOF."
                 exit FAIL
             end
-            statements << statement
+            statements << statement env
         end
-        # Check for end? EOF?
 
         @i += 1
-        @noDef = false
-        @defVars.clear
 
         Definition.new name, formals, (Block.new statements), RT::Void
     end
 
-    def assign
+    def assign(env)
         id = curToken
         @i += 1
 
         # = sign
         @i += 1
-        r = expression
+
+        r = expression env
 
         if r.is_a? IntegerExpression
-            if @noDef
-                @defVars[id.code] = VT::Integer
+            if env.variables.has_key? id.code
+                env.variables[id.code].type = VT::Integer
+                env.variables[id.code].value = 0
             else
-                @variables[id.code] = VT::Integer
+                env.variables[id.code] = Variable.new VT::Integer, 0
             end
 
             Assignment.new id.code, VT::Integer, r
 
         elsif r.is_a? BooleanExpression
-            if @noDef
-                @defVars[id.code] = VT::Boolean
+            if env.variables.has_key? id.code
+                env.variables[id.code].type = VT::Boolean
+                env.variables[id.code].value = false
             else
-                @variables[id.code] = VT::Boolean
+                env.variables[id.code] = Variable.new VT::Boolean, false
             end
 
             Assignment.new id.code, VT::Boolean, r
@@ -221,12 +218,12 @@ class Parser
         end
     end
 
-    def call
+    def call(env)
         id = curToken
         @i += 1
 
         actuals = [] of Expression
-        numArgs = @functions[id.code].numArgs 
+        numArgs = env.functions[id.code].numArgs
         #s = (numArgs == 1 ? "" : "s")
 
         if numArgs > 0 
@@ -239,8 +236,8 @@ class Parser
             j = 0
 
             loop do
-                arg = expression
-                t = @functions[id.code].formals[j].type
+                arg = expression env
+                t = env.functions[id.code].formals[j].type
 
                 if (arg.is_a? IntegerExpression && t.is_a? VT::Integer) ||
                         (arg.is_a? BooleanExpression && t.is_a? VT::Boolean)
@@ -284,31 +281,24 @@ class Parser
         Call.new id.code, actuals
     end
 
-    def expression
-        logicalOr
+    def expression(env)
+        logicalOr env
     end
 
-    def logicalOr
-        a = logicalAnd
+    def logicalOr(env)
+        a = logicalAnd env
         while curToken.tokenType == TT::Or
             operator = curToken
             @i += 1
 
-            # I don't remember why I check if it is a *Expression OR a *Variable. A
-            # *Variable IS a *Expression so I should be able to just check for
-            # *Expression
             unless a.is_a? BooleanExpression
                 operatorRaise operator, a, BooleanExpression, "L"
-                # Crystal for some reason doesn't recognize operatorRaise as NoReturn
-                # when assigning type to a, b (fixed?)
-                exit
             end
 
-            b = logicalAnd
+            b = logicalAnd env
 
             unless b.is_a? BooleanExpression
                 operatorRaise operator, b, BooleanExpression, "R"
-                exit
             end
 
             a = Or.new a, b
@@ -316,22 +306,20 @@ class Parser
         a
     end
 
-    def logicalAnd
-        a = relational
+    def logicalAnd(env)
+        a = relational env
         while curToken.tokenType == TT::And
             operator = curToken
             @i += 1
 
             unless a.is_a? BooleanExpression
                 operatorRaise operator, a, BooleanExpression, "L"
-                exit
             end
 
-            b = relational
+            b = relational env
 
             unless b.is_a? BooleanExpression
                 operatorRaise operator, b, BooleanExpression, "R"
-                exit
             end
 
             a = And.new a, b
@@ -339,14 +327,14 @@ class Parser
         a
     end
 
-    def relational
-        a = comparison
+    def relational(env)
+        a = comparison env
         while curToken.tokenType == TT::Equal ||
                 curToken.tokenType == TT::NotEqual
 
             operator = curToken
             @i += 1
-            b = comparison
+            b = comparison env
             if operator.tokenType == TT::Equal
                 a = Equal.new a, b
             else
@@ -356,8 +344,8 @@ class Parser
         a
     end
 
-    def comparison
-        a = additive
+    def comparison(env)
+        a = additive env
         while curToken.tokenType == TT::Greater ||
                 curToken.tokenType == TT::GreaterOrEqual ||
                 curToken.tokenType == TT::LessOrEqual ||
@@ -368,14 +356,12 @@ class Parser
 
             unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression, "L"
-                exit
             end
 
-            b = additive
+            b = additive env
 
             unless b.is_a? IntegerExpression
                 operatorRaise operator, b, IntegerExpression, "R"
-                exit
             end
 
             if operator.tokenType == TT::Greater
@@ -391,8 +377,8 @@ class Parser
         a
     end
 
-    def additive
-        a = multiplicative
+    def additive(env)
+        a = multiplicative env
         while curToken.tokenType == TT::Plus ||
                 curToken.tokenType == TT::Minus
 
@@ -401,14 +387,12 @@ class Parser
 
             unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression, "L"
-                exit
             end
 
-            b = multiplicative
+            b = multiplicative env
 
             unless b.is_a? IntegerExpression
                 operatorRaise operator, b, IntegerExpression, "R"
-                exit
             end
 
             if operator.tokenType == TT::Plus
@@ -420,8 +404,8 @@ class Parser
         a
     end
 
-    def multiplicative
-        a = unary
+    def multiplicative(env)
+        a = unary env
         while curToken.tokenType == TT::Star ||
                 curToken.tokenType == TT::Slash ||
                 curToken.tokenType == TT::Percent
@@ -431,62 +415,52 @@ class Parser
 
             unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression, "L"
-                exit
             end
 
-            b = unary
+            b = unary env
 
             unless b.is_a? IntegerExpression
                 operatorRaise operator, b, IntegerExpression, "R"
-                exit
             end
 
-            begin
-                if operator.tokenType == TT::Star
-                    a = Multiply.new a, b
-                elsif operator.tokenType == TT::Slash
-                    a = Divide.new a, b
-                else
-                    a = Mod.new a, b
-                end
-            rescue e
-                STDERR.puts "#{@i} #{a} #{e.message}"
-                exit FAIL
+            if operator.tokenType == TT::Star
+                a = Multiply.new a, b
+            elsif operator.tokenType == TT::Slash
+                a = Divide.new a, b
+            else
+                a = Mod.new a, b
             end
-            # Why do I have this rescue?
         end
         a
     end
 
-    def unary
+    def unary(env)
         if curToken.tokenType == TT::Minus
             operator = curToken
             @i += 1
-            a = atom
+            a = atom env
 
             unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression
-                exit
             end
 
             Negate.new a
         elsif curToken.tokenType == TT::Bang
             operator = curToken
             @i += 1
-            a = atom
+            a = atom env
 
             unless a.is_a? BooleanExpression
                 operatorRaise operator, a, BooleanExpression
-                exit
             end
 
             Not.new a
         else
-            atom
+            atom env
         end
     end
 
-    def atom
+    def atom(env)
         if curToken.tokenType == TT::Integer
             int = Integer.new curToken.code.to_i
             @i += 1
@@ -499,14 +473,8 @@ class Parser
             id = curToken
             @i += 1
 
-            if !@noDef && @variables.has_key? id.code
-                if @variables[id.code].is_a? VT::Integer
-                    IntegerVariable.new id.code
-                else
-                    BooleanVariable.new id.code
-                end
-            elsif @noDef && @defVars.has_key? id.code 
-                if @defVars[id.code].is_a? VT::Integer
+            if env.variables.has_key? id.code
+                if env.variables[id.code].type.is_a? VT::Integer
                     IntegerVariable.new id.code
                 else
                     BooleanVariable.new id.code
@@ -517,7 +485,7 @@ class Parser
             end
         elsif curToken.tokenType == TT::ParenthesisL
             @i += 1
-            e = expression
+            e = expression env
 
             unless curToken.tokenType == TT::ParenthesisR
                 STDERR.puts "Expected ), not #{@i} #{curToken.code}."

@@ -1,6 +1,5 @@
 class Environment
-    getter variables, functions
-    property level
+    getter variables, functions, level
 
     def initialize(
         @variables = {} of String => Variable,
@@ -15,7 +14,7 @@ class Variable
         Integer
     end
 
-    getter type, value
+    property type, value
 
     def initialize(@type : VariableType, @value : Int32 | Bool) end
 end
@@ -209,13 +208,13 @@ class Multiply < BinaryArithmetic
 end
 
 class Divide < BinaryArithmetic
-    def initialize(@a : IntegerExpression, @b : IntegerExpression)
-    end
+    def initialize(@a : IntegerExpression, @b : IntegerExpression) end
 
     def evaluate(env)
         b = @b.evaluate(env)
         if b == 0
-            raise "Division by zero not supported."
+            STDERR.puts "Division by zero not supported."
+            exit FAIL
         end
         @a.evaluate(env) / b
     end
@@ -227,7 +226,8 @@ class Mod < BinaryArithmetic
     def evaluate(env)
         b = @b.evaluate(env)
         if b == 0
-            raise "Modulus zero not supported."
+            STDERR.puts "Modulus zero not supported."
+            exit FAIL
         end
         @a.evaluate(env) % b
     end
