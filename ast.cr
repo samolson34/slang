@@ -1,9 +1,11 @@
 class Environment
     getter variables, functions
+    property level
 
     def initialize(
         @variables = {} of String => Variable,
-        @functions = {} of String => Function
+        @functions = {} of String => Function,
+        @level = 0
     ) end
 end
 
@@ -13,9 +15,9 @@ class Variable
         Integer
     end
 
-    getter variableType, value
+    getter type, value
 
-    def initialize(@variableType : VariableType, @value : Int32 | Bool) end
+    def initialize(@type : VariableType, @value : Int32 | Bool) end
 end
 
 class Function
@@ -78,14 +80,14 @@ end
 class Assignment < Statement
     def initialize(
         @name : String,
-        @variableType : Variable::VariableType,
+        @type : Variable::VariableType,
         @expression : Expression
     ) end
 
     def evaluate(env)
         env.variables[@name] =
             Variable.new(
-                @variableType,
+                @type,
                 @expression.evaluate(env)
             )
     end

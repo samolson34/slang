@@ -13,8 +13,8 @@ class Parser
 
     def initialize(@tokens : Array(Token)) end
 
-    def curToken
-        @tokens[@i]
+    def curToken(bias = 0)
+        @tokens[@i + bias]
     end
 
     def operatorRaise(operator, operand, expected, side="")
@@ -48,15 +48,12 @@ class Parser
         elsif curToken.tokenType == TT::Define
             define
         elsif curToken.tokenType == TT::Identifier
-            id = curToken
-            @i += 1
-
-            if curToken.tokenType == TT::Assign
-                assign id
-            elsif @functions.has_key? id.code
-                call id
+            if curToken(1).tokenType == TT::Assign
+                assign
+            elsif @functions.has_key? curToken.code
+                call
             else
-                STDERR.puts "Unexpected identifier: #{@i} #{id.code}"
+                STDERR.puts "Unexpected identifier: #{@i} #{curToken.code}"
                 exit FAIL
             end
         else
@@ -192,11 +189,15 @@ class Parser
         Definition.new name, formals, (Block.new statements), RT::Void
     end
 
-    def assign(id)
+    def assign
+        id = curToken
+        @i += 1
+
+        # = sign
         @i += 1
         r = expression
 
-        if r.is_a? IntegerExpression || r.is_a? IntegerVariable
+        if r.is_a? IntegerExpression
             if @noDef
                 @defVars[id.code] = VT::Integer
             else
@@ -205,7 +206,7 @@ class Parser
 
             Assignment.new id.code, VT::Integer, r
 
-        elsif r.is_a? BooleanExpression || r.is_a? BooleanVariable
+        elsif r.is_a? BooleanExpression
             if @noDef
                 @defVars[id.code] = VT::Boolean
             else
@@ -220,7 +221,10 @@ class Parser
         end
     end
 
-    def call(id)
+    def call
+        id = curToken
+        @i += 1
+
         actuals = [] of Expression
         numArgs = @functions[id.code].numArgs 
         #s = (numArgs == 1 ? "" : "s")
@@ -293,7 +297,7 @@ class Parser
             # I don't remember why I check if it is a *Expression OR a *Variable. A
             # *Variable IS a *Expression so I should be able to just check for
             # *Expression
-            unless a.is_a? BooleanExpression || a.is_a? BooleanVariable
+            unless a.is_a? BooleanExpression
                 operatorRaise operator, a, BooleanExpression, "L"
                 # Crystal for some reason doesn't recognize operatorRaise as NoReturn
                 # when assigning type to a, b (fixed?)
@@ -302,7 +306,7 @@ class Parser
 
             b = logicalAnd
 
-            unless b.is_a? BooleanExpression || b.is_a? BooleanVariable
+            unless b.is_a? BooleanExpression
                 operatorRaise operator, b, BooleanExpression, "R"
                 exit
             end
@@ -318,14 +322,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? BooleanExpression || a.is_a? BooleanVariable
+            unless a.is_a? BooleanExpression
                 operatorRaise operator, a, BooleanExpression, "L"
                 exit
             end
 
             b = relational
 
-            unless b.is_a? BooleanExpression || b.is_a? BooleanVariable
+            unless b.is_a? BooleanExpression
                 operatorRaise operator, b, BooleanExpression, "R"
                 exit
             end
@@ -362,14 +366,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression || a.is_a? IntegerVariable
+            unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression, "L"
                 exit
             end
 
             b = additive
 
-            unless b.is_a? IntegerExpression || b.is_a? IntegerVariable
+            unless b.is_a? IntegerExpression
                 operatorRaise operator, b, IntegerExpression, "R"
                 exit
             end
@@ -395,14 +399,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression || a.is_a? IntegerVariable
+            unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression, "L"
                 exit
             end
 
             b = multiplicative
 
-            unless b.is_a? IntegerExpression || b.is_a? IntegerVariable
+            unless b.is_a? IntegerExpression
                 operatorRaise operator, b, IntegerExpression, "R"
                 exit
             end
@@ -425,14 +429,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression || a.is_a? IntegerVariable
+            unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression, "L"
                 exit
             end
 
             b = unary
 
-            unless b.is_a? IntegerExpression || b.is_a? IntegerVariable
+            unless b.is_a? IntegerExpression
                 operatorRaise operator, b, IntegerExpression, "R"
                 exit
             end
@@ -460,7 +464,7 @@ class Parser
             @i += 1
             a = atom
 
-            unless a.is_a? IntegerExpression || a.is_a? IntegerVariable
+            unless a.is_a? IntegerExpression
                 operatorRaise operator, a, IntegerExpression
                 exit
             end
@@ -471,7 +475,7 @@ class Parser
             @i += 1
             a = atom
 
-            unless a.is_a? BooleanExpression || a.is_a? BooleanVariable
+            unless a.is_a? BooleanExpression
                 operatorRaise operator, a, BooleanExpression
                 exit
             end
