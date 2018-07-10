@@ -84,11 +84,16 @@ class Assignment < Statement
     ) end
 
     def evaluate(env)
-        env.variables[@name] =
-            Variable.new(
-                @type,
-                @expression.evaluate(env)
-            )
+        if env.variables.has_key? @name
+            env.variables[@name].type = @type
+            env.variables[@name].value = @expression.evaluate(env)
+        else
+            env.variables[@name] =
+                Variable.new(
+                    @type,
+                    @expression.evaluate(env)
+                )
+        end
     end
 end
 
