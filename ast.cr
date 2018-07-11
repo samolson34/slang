@@ -59,11 +59,13 @@ class Block
 end
 
 abstract class Statement
+    getter line = 0
+
     abstract def evaluate(env : Environment)
 end
 
 class Print < Statement
-    def initialize(@message : Expression) end
+    def initialize(@message : Expression, @line) end
 
     def evaluate(env)
         print @message.evaluate(env)
@@ -80,7 +82,8 @@ class Assignment < Statement
     def initialize(
         @name : String,
         @type : Variable::VariableType,
-        @expression : Expression
+        @expression : Expression,
+        @line
     ) end
 
     def evaluate(env)
@@ -100,7 +103,8 @@ end
 class If < Statement
     def initialize(
         @condition : BooleanExpression,
-        @body : Block
+        @body : Block,
+        @line
     ) end
 
     def evaluate(env)
@@ -118,7 +122,8 @@ end
 class While < Statement
     def initialize(
         @condition : BooleanExpression,
-        @body : Block
+        @body : Block,
+        @line
     ) end
 
     def evaluate(env)
@@ -138,12 +143,13 @@ class Definition < Statement
         @name : String,
         @formals : Array(Function::Formal),
         @body : Block,
-        @returnType : Function::ReturnType
+        @returnType : Function::ReturnType,
+        @line
     ) end
 
     def evaluate(env)
         if env.level > 1
-            STDERR.puts "Must define function at global scope."
+            STDERR.puts "Line #{@line} -> Must define function at global scope."
             exit 1
         end
 
@@ -152,7 +158,7 @@ class Definition < Statement
 end
 
 class Call < Statement
-    def initialize(@name : String, @actuals : Array(Expression)) end
+    def initialize(@name : String, @actuals : Array(Expression), @line) end
 
     def evaluate(env)
         func = env.functions[@name]
@@ -177,21 +183,19 @@ class Call < Statement
     end
 end
 
-abstract class Expression
-    abstract def evaluate(env : Environment)
-end
+abstract class Expression < Statement end
 
 abstract class IntegerExpression < Expression
     abstract def evaluate(env) : Int32
 end
 
 class IntegerVariable < IntegerExpression
-    def initialize(@name : String) end
+    def initialize(@name : String, @line) end
 
     def evaluate(env)
         value = env.variables[@name].value
         unless value.is_a? Int32
-            STDERR.puts "Integer variable error."
+            STDERR.puts "Line #{@line} -> Integer variable error."
             exit 1
         end
         value
@@ -199,7 +203,7 @@ class IntegerVariable < IntegerExpression
 end
 
 class Integer < IntegerExpression
-    def initialize(@value : Int32) end
+    def initialize(@value : Int32, @line) end
 
     def evaluate(env)
         @value
@@ -207,7 +211,7 @@ class Integer < IntegerExpression
 end
 
 abstract class ArithmeticOperator < IntegerExpression
-    def initialize(@a : IntegerExpression) end
+    def initialize(@a : IntegerExpression, @line) end
 end
 
 abstract class UnaryArithmetic < ArithmeticOperator end
@@ -219,7 +223,7 @@ class Negate < UnaryArithmetic
 end
 
 abstract class BinaryArithmetic < ArithmeticOperator
-    def initialize(@a : IntegerExpression, @b : IntegerExpression) end
+    def initialize(@a : IntegerExpression, @b : IntegerExpression, @line) end
 end
 
 class Multiply < BinaryArithmetic
@@ -229,12 +233,10 @@ class Multiply < BinaryArithmetic
 end
 
 class Divide < BinaryArithmetic
-    def initialize(@a : IntegerExpression, @b : IntegerExpression) end
-
     def evaluate(env)
         b = @b.evaluate(env)
         if b == 0
-            STDERR.puts "Division by zero not supported."
+            STDERR.puts "Line #{@line} -> Division by zero not supported."
             exit 1
         end
         @a.evaluate(env) / b
@@ -242,12 +244,10 @@ class Divide < BinaryArithmetic
 end
 
 class Mod < BinaryArithmetic
-    def initialize(@a : IntegerExpression, @b : IntegerExpression) end
-
     def evaluate(env)
         b = @b.evaluate(env)
         if b == 0
-            STDERR.puts "Modulus zero not supported."
+            STDERR.puts "Line #{@line} -> Modulus zero not supported."
             exit 1
         end
         @a.evaluate(env) % b
@@ -271,12 +271,12 @@ abstract class BooleanExpression < Expression
 end
 
 class BooleanVariable < BooleanExpression
-    def initialize(@name : String) end
+    def initialize(@name : String, @line) end
 
     def evaluate(env)
         value = env.variables[@name].value
         unless value.is_a? Bool
-            STDERR.puts "Boolean variable error."
+            STDERR.puts "Line #{@line} -> Boolean variable error."
             exit 1
         end
         value
@@ -284,7 +284,7 @@ class BooleanVariable < BooleanExpression
 end
 
 class Boolean < BooleanExpression
-    def initialize(@value : Bool) end
+    def initialize(@value : Bool, @line) end
 
     def evaluate(env)
         @value
@@ -292,7 +292,7 @@ class Boolean < BooleanExpression
 end
 
 class Not < BooleanExpression
-    def initialize(@a : BooleanExpression) end
+    def initialize(@a : BooleanExpression, @line) end
 
     def evaluate(env)
         !@a.evaluate(env)
@@ -300,7 +300,7 @@ class Not < BooleanExpression
 end
 
 abstract class RelationalOperator < BooleanExpression
-    def initialize(@a : Expression, @b : Expression) end
+    def initialize(@a : Expression, @b : Expression, @line) end
 end
 
 class Equal < RelationalOperator
@@ -316,7 +316,7 @@ class NotEqual < RelationalOperator
 end
 
 abstract class ComparisonOperator < RelationalOperator
-    def initialize(@a : IntegerExpression, @b : IntegerExpression) end
+    def initialize(@a : IntegerExpression, @b : IntegerExpression, @line) end
 end
 
 class Greater < ComparisonOperator
@@ -349,7 +349,7 @@ class LessOrEqual < ComparisonOperator
 end
 
 abstract class LogicalOperator < BooleanExpression
-    def initialize(@a : BooleanExpression, @b : BooleanExpression) end
+    def initialize(@a : BooleanExpression, @b : BooleanExpression, @line) end
 end
 
 class Or < LogicalOperator

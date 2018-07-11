@@ -6,9 +6,6 @@ class Parser
     FAIL = 1
 
     @i = 0
-    def lineMsg(token)
-        "Line #{token.line} -> "
-    end
 
     def initialize(@tokens : Array(Token)) end
 
@@ -19,10 +16,13 @@ class Parser
     def operatorRaise(operator, operand, expected, side="")
         side += ' ' unless side.empty?
 
-        # Get line number from operand, not operator
-        STDERR.puts "#{lineMsg(operator)}For #{operator.code} #{side}operand: \
+        STDERR.puts "#{lineMsg(operand)}For #{operator.code} #{side}operand: \
             expected #{expected}, not #{operand.class}."
         exit FAIL
+    end
+
+    def lineMsg(token)
+        "Line #{token.line} -> "
     end
 
     def parse
@@ -38,11 +38,13 @@ class Parser
 
     def statement(env)
         if curToken.tokenType == TT::Print
+            line = curToken.line
             @i += 1
-            Print.new expression env
+            Print.new (expression env), line
         elsif curToken.tokenType == TT::Println
+            line = curToken.line
             @i += 1
-            Println.new expression env
+            Println.new (expression env), line
         elsif curToken.tokenType == TT::If
             scope = Environment.new(
                 env.variables.dup,
@@ -80,6 +82,7 @@ class Parser
     end
 
     def conditional(env)
+        line = curToken.line
         @i += 1
         
         condition = expression env
@@ -100,10 +103,11 @@ class Parser
 
         @i += 1
 
-        If.new condition, Block.new body
+        If.new condition, (Block.new body), line
     end
 
     def whileLoop(env)
+        line = curToken.line
         @i += 1
 
         condition = expression env
@@ -123,7 +127,7 @@ class Parser
 
         @i += 1
 
-        While.new condition, Block.new body
+        While.new condition, (Block.new body), line
     end
 
     def define(env)
@@ -132,6 +136,7 @@ class Parser
            exit FAIL
         end
 
+        line = curToken.line
         @i += 1
 
         unless curToken.tokenType == TT::Identifier
@@ -196,7 +201,7 @@ class Parser
 
         @i += 1
 
-        Definition.new name, formals, (Block.new statements), RT::Void
+        Definition.new name, formals, (Block.new statements), RT::Void, line
     end
 
     def assign(env)
@@ -216,7 +221,7 @@ class Parser
                 env.variables[id.code] = Variable.new VT::Integer, 0
             end
 
-            Assignment.new id.code, VT::Integer, r
+            Assignment.new id.code, VT::Integer, r, id.line
 
         elsif r.is_a? BooleanExpression
             if env.variables.has_key? id.code
@@ -226,7 +231,7 @@ class Parser
                 env.variables[id.code] = Variable.new VT::Boolean, false
             end
 
-            Assignment.new id.code, VT::Boolean, r
+            Assignment.new id.code, VT::Boolean, r, id.line
 
         else
             STDERR.puts "#{lineMsg(id)}Error in variable assignment: #{id.code}"
@@ -295,7 +300,7 @@ class Parser
             @i += 1
         end
 
-        Call.new id.code, actuals
+        Call.new id.code, actuals, id.line
     end
 
     def expression(env)
@@ -318,7 +323,7 @@ class Parser
                 operatorRaise operator, b, BooleanExpression, "R"
             end
 
-            a = Or.new a, b
+            a = Or.new a, b, a.line
         end
         a
     end
@@ -339,7 +344,7 @@ class Parser
                 operatorRaise operator, b, BooleanExpression, "R"
             end
 
-            a = And.new a, b
+            a = And.new a, b, a.line
         end
         a
     end
@@ -353,9 +358,9 @@ class Parser
             @i += 1
             b = comparison env
             if operator.tokenType == TT::Equal
-                a = Equal.new a, b
+                a = Equal.new a, b, a.line
             else
-                a = NotEqual.new a, b
+                a = NotEqual.new a, b, a.line
             end
         end
         a
@@ -382,13 +387,13 @@ class Parser
             end
 
             if operator.tokenType == TT::Greater
-                a = Greater.new a, b
+                a = Greater.new a, b, a.line
             elsif operator.tokenType == TT::GreaterOrEqual
-                a = GreaterOrEqual.new a, b
+                a = GreaterOrEqual.new a, b, a.line
             elsif operator.tokenType == TT::LessOrEqual
-                a = LessOrEqual.new a, b
+                a = LessOrEqual.new a, b, a.line
             else
-                a = Less.new a, b
+                a = Less.new a, b, a.line
             end
         end
         a
@@ -413,9 +418,9 @@ class Parser
             end
 
             if operator.tokenType == TT::Plus
-                a = Add.new a, b
+                a = Add.new a, b, a.line
             else
-                a = Subtract.new a, b
+                a = Subtract.new a, b, a.line
             end
         end
         a
@@ -441,11 +446,11 @@ class Parser
             end
 
             if operator.tokenType == TT::Star
-                a = Multiply.new a, b
+                a = Multiply.new a, b, a.line
             elsif operator.tokenType == TT::Slash
-                a = Divide.new a, b
+                a = Divide.new a, b, a.line
             else
-                a = Mod.new a, b
+                a = Mod.new a, b, a.line
             end
         end
         a
@@ -461,7 +466,7 @@ class Parser
                 operatorRaise operator, a, IntegerExpression
             end
 
-            Negate.new a
+            Negate.new a, a.line
         elsif curToken.tokenType == TT::Bang
             operator = curToken
             @i += 1
@@ -471,7 +476,7 @@ class Parser
                 operatorRaise operator, a, BooleanExpression
             end
 
-            Not.new a
+            Not.new a, a.line
         else
             atom env
         end
@@ -479,11 +484,11 @@ class Parser
 
     def atom(env)
         if curToken.tokenType == TT::Integer
-            int = Integer.new curToken.code.to_i
+            int = Integer.new curToken.code.to_i, curToken.line
             @i += 1
             int
         elsif curToken.tokenType == TT::Boolean
-            bool = Boolean.new (curToken.code == "true")
+            bool = Boolean.new (curToken.code == "true"), curToken.line
             @i += 1
             bool
         elsif curToken.tokenType == TT::Identifier
@@ -492,9 +497,9 @@ class Parser
 
             if env.variables.has_key? id.code
                 if env.variables[id.code].type.is_a? VT::Integer
-                    IntegerVariable.new id.code
+                    IntegerVariable.new id.code, id.line
                 else
-                    BooleanVariable.new id.code
+                    BooleanVariable.new id.code, id.line
                 end
             else
                 STDERR.puts "#{lineMsg(id)}Uninitialized variable: #{id.code}"

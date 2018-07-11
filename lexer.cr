@@ -48,8 +48,8 @@ class Lexer
     @tokens = [] of Token
     @token = ""
     @i = 0
-    @src : String
     @line = 1
+    @src : String
 
     def initialize(file)
         @src = file.gets_to_end.chomp
@@ -67,6 +67,10 @@ class Lexer
 
     def curChar
         @src[@i]
+    end
+
+    def lineMsg
+        "Line #{@line} -> "
     end
 
     def lex
@@ -159,7 +163,7 @@ class Lexer
                     take
                     append TT::Or
                 else
-                    STDERR.puts "Bitwise operations not supported. #{@i}"
+                    STDERR.puts "#{lineMsg}Bitwise operations not supported."
                     exit FAIL
                 end
 
@@ -170,7 +174,7 @@ class Lexer
                     take
                     append TT::And
                 else
-                    STDERR.puts "Bitwise operations not supported. #{@i}"
+                    STDERR.puts "#{lineMsg}Bitwise operations not supported."
                     exit FAIL
                 end
 
@@ -228,7 +232,7 @@ class Lexer
 
             # Anything else
             else
-                STDERR.puts "Unidentified character: #{curChar} #{@i}"
+                STDERR.puts "#{lineMsg}Unidentified character: #{curChar}"
                 exit FAIL
             end
         end
