@@ -31,11 +31,12 @@ class Token
         While
     end
 
-    getter tokenType, code
+    getter tokenType, code, line
 
     def initialize(
         @tokenType : TokenType,
-        @code : String
+        @code : String,
+        @line : Int32
     ) end
 end
 
@@ -48,6 +49,7 @@ class Lexer
     @token = ""
     @i = 0
     @src : String
+    @line = 1
 
     def initialize(file)
         @src = file.gets_to_end.chomp
@@ -59,7 +61,7 @@ class Lexer
     end
 
     def append(tokenType)
-        @tokens << Token.new tokenType, @token
+        @tokens << Token.new tokenType, @token, @line
         @token = ""
     end
 
@@ -213,8 +215,14 @@ class Lexer
                     append TT::Identifier
                 end
 
+            # New line
+            elsif curChar == '\n'
+                @token = ""
+                @i += 1
+                @line += 1
+
             # Whitespace
-            elsif curChar.whitespace?
+            elsif curChar.whitespace? && curChar != '\n'
                 @token = ""
                 @i += 1
 
@@ -225,6 +233,6 @@ class Lexer
             end
         end
 
-        @tokens << Token.new TT::EOF, @token
+        @tokens << Token.new TT::EOF, @token, @line
     end
 end

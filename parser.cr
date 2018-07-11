@@ -6,6 +6,9 @@ class Parser
     FAIL = 1
 
     @i = 0
+    def lineMsg(token)
+        "Line #{token.line} -> "
+    end
 
     def initialize(@tokens : Array(Token)) end
 
@@ -15,8 +18,9 @@ class Parser
 
     def operatorRaise(operator, operand, expected, side="")
         side += ' ' unless side.empty?
-        STDERR.puts "For #{operator.code} #{side}operand: \
-            expected #{expected}, not #{operand.class}. #{@i}"
+        
+        STDERR.puts "#{lineMsg(operator)}For #{operator.code} #{side}operand: \
+            expected #{expected}, not #{operand.class}."
         exit FAIL
     end
 
@@ -65,11 +69,11 @@ class Parser
             elsif env.functions.has_key? curToken.code
                 call env
             else
-                STDERR.puts "Unexpected identifier: #{@i} #{curToken.code}"
+                STDERR.puts "#{lineMsg(curToken)}Unexpected identifier: #{curToken.code}"
                 exit FAIL
             end
         else
-            STDERR.puts "Unexpected token: #{@i} #{curToken.code}"
+            STDERR.puts "#{lineMsg(curToken)}Unexpected token: #{@i} #{curToken.code}"
             exit FAIL
         end
     end
@@ -79,14 +83,14 @@ class Parser
         
         condition = expression env
         unless condition.is_a? BooleanExpression
-            STDERR.puts "Expected BooleanExpression, not #{condition.class}. #{@i}"
+            STDERR.puts "Expected BooleanExpression, not #{condition.class}."
             exit FAIL
         end
 
         body = [] of Statement
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
-                STDERR.puts "Expected end after if, not EOF."
+                STDERR.puts "#{lineMsg(curToken)}Expected end after if, not EOF."
                 exit FAIL
             end
             body << statement env
@@ -110,7 +114,7 @@ class Parser
         body = [] of Statement
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
-                STDERR.puts "Expected end after while, not EOF."
+                STDERR.puts "#{lineMsg(curToken)}Expected end after while, not EOF."
                 exit FAIL
             end
             body << statement env
@@ -123,14 +127,15 @@ class Parser
 
     def define(env)
         if env.level > 1
-           STDERR.puts "Must define function at global scope."
+           STDERR.puts "#{lineMsg(curToken)}Must define function at global scope."
            exit FAIL
         end
 
         @i += 1
 
         unless curToken.tokenType == TT::Identifier
-            STDERR.puts "Identifier expected after def, not #{curToken.code}. #{@i}" 
+            STDERR.puts "#{lineMsg(curToken)}Identifier expected after def, not \
+                #{curToken.code}." 
             exit FAIL
         end
 
@@ -151,7 +156,8 @@ class Parser
                     end
                     @i += 1
                 else
-                    STDERR.puts "Must name parameter types in function definition. #{@i}"
+                    STDERR.puts "#{lineMsg(curToken)}Must name parameter types \
+                        in function definition."
                     exit FAIL
                 end
 
@@ -160,7 +166,9 @@ class Parser
                     env.variables[curToken.code] = v
                     @i += 1
                 else
-                    STDERR.puts "Parameters expected in (). #{@i}"
+                    # Not a great error message
+                    STDERR.puts "#{lineMsg(curToken)}Invalid formal parameter name: \
+                        #{curToken.code}"
                     exit FAIL
                 end
 
@@ -169,7 +177,8 @@ class Parser
             end
 
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "Expected ) after formals. #{@i}"
+                STDERR.puts "#{lineMsg(curToken)}Expected ) after formals, \
+                    not #{curToken.code}."
                 exit FAIL
             end
             @i += 1
@@ -180,7 +189,7 @@ class Parser
 
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
-                STDERR.puts "Expected end after def, not EOF."
+                STDERR.puts "#{lineMsg(curToken)}Expected end after def, not EOF."
                 exit FAIL
             end
             statements << statement env
@@ -221,7 +230,7 @@ class Parser
             Assignment.new id.code, VT::Boolean, r
 
         else
-            STDERR.puts "Error in variable assignment: #{@i} #{id.code}"
+            STDERR.puts "#{lineMsg(id)}Error in variable assignment: #{id.code}"
             exit FAIL
         end
     end
@@ -236,7 +245,8 @@ class Parser
 
         if numArgs > 0 
             unless curToken.tokenType == TT::ParenthesisL
-                STDERR.puts "Expected () for passing arguments to function."
+                STDERR.puts "#{lineMsg(curToken)}Expected () for passing arguments \
+                    to function."
                 exit FAIL
             end
             @i += 1
@@ -252,7 +262,7 @@ class Parser
 
                     actuals << arg
                 else
-                    STDERR.puts "Argument #{j + 1} type does not match \
+                    STDERR.puts "#{lineMsg(id)}Argument #{j + 1} type does not match \
                         type signature in #{id.code}."
 
                     exit FAIL
@@ -263,7 +273,7 @@ class Parser
                 break unless curToken.tokenType == TT::Comma
 
                 unless numArgs > j
-                    STDERR.puts "Too many arguments to function #{id.code}. \
+                    STDERR.puts "#{lineMsg(id)}Too many arguments to function #{id.code}. \
                         Expected #{numArgs}."
 
                     exit FAIL
@@ -273,14 +283,14 @@ class Parser
             end
 
             unless j == numArgs
-                STDERR.puts "Too few arguments to function #{id.code}. \
+                STDERR.puts "#{lineMsg(id)}Too few arguments to function #{id.code}. \
                     Expected #{numArgs}, not #{j}."
 
                 exit FAIL
             end
 
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "Expected ), not #{curToken.code}. #{@i}"
+                STDERR.puts "#{lineMsg(curToken)}Expected ), not #{curToken.code}."
                 exit FAIL
             end
             @i += 1
@@ -488,7 +498,7 @@ class Parser
                     BooleanVariable.new id.code
                 end
             else
-                STDERR.puts "Uninitialized variable: #{@i} #{id.code}"
+                STDERR.puts "#{lineMsg(id)}Uninitialized variable: #{@i} #{id.code}"
                 exit FAIL
             end
         elsif curToken.tokenType == TT::ParenthesisL
@@ -496,14 +506,15 @@ class Parser
             e = expression env
 
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "Expected ), not #{@i} #{curToken.code}."
+                STDERR.puts "#{lineMsg(curToken)}Expected ), not #{curToken.code}."
                 exit FAIL
             end
 
             @i += 1
             e
         else
-            STDERR.puts "Bad token: #{@i} #{curToken.code}. Expected expression"
+            STDERR.puts "#{lineMsg(curToken)}Bad token: #{curToken.code}. Expected \
+                expression."
             exit FAIL
         end
     end
