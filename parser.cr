@@ -517,8 +517,8 @@ class Parser
             @i += 1
             e
         else
-            STDERR.puts "#{lineMsg(curToken)}Bad token: #{curToken.code}. Expected \
-                expression."
+            STDERR.puts "#{lineMsg(curToken)}Unexpected token: #{curToken.code}. \
+                Expected expression."
             exit FAIL
         end
     end
