@@ -23,6 +23,7 @@ else
 
         parser = Parser.new tokens
         program = parser.parse
+
         program.evaluate Environment.new
     end
 end

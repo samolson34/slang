@@ -1,16 +1,18 @@
-#def timeChange(int tempo, int numer, int denom)
-#    println tempo * numer / denom
-#end
-#
-#timeChange(100, 2, 3)
-#timeChange(66, 3, 2)
-#timeChange(100, 4, 3)
+def timeChange(int tempo, int numer, int denom)
+    println tempo * numer / denom
+end
+
+timeChange(100, 2, 3)
+timeChange(66, 3, 2)
+timeChange(100, 4, 3)
+
+# Com
+#    me
+#      nt
+
 
 i = 0
 while i < 3
-#    def abc
- #       println 0
-  #  end
     d = i * 2
     println d
 
@@ -18,7 +20,12 @@ while i < 3
 end
 
 println i
-#println d
+#println d  # Out of scope variable
 
-# Uninitialized variable: d
-println 0 / 0
+#println 0 % 0
+
+def fun-func
+
+    println 90
+
+end

@@ -237,6 +237,6 @@ class Lexer
             end
         end
 
-        @tokens << Token.new TT::EOF, @token, @line
+        @tokens << Token.new TT::EOF, "EOF", @line
     end
 end

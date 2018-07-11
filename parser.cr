@@ -21,8 +21,8 @@ class Parser
         exit FAIL
     end
 
-    def lineMsg(token)
-        "Line #{token.line} -> "
+    def lineMsg(expr)
+        "Line #{expr.line} -> "
     end
 
     def parse
@@ -76,7 +76,7 @@ class Parser
                 exit FAIL
             end
         else
-            STDERR.puts "#{lineMsg(curToken)}Unexpected token: #{@i} #{curToken.code}"
+            STDERR.puts "#{lineMsg(curToken)}Unexpected token: #{curToken.code}"
             exit FAIL
         end
     end
@@ -87,7 +87,8 @@ class Parser
         
         condition = expression env
         unless condition.is_a? BooleanExpression
-            STDERR.puts "Expected BooleanExpression, not #{condition.class}."
+            STDERR.puts "#{lineMsg(condition)}Expected BooleanExpression, not \
+                #{condition.class}."
             exit FAIL
         end
 
@@ -112,7 +113,8 @@ class Parser
 
         condition = expression env
         unless condition.is_a? BooleanExpression
-            STDERR.puts "Expected BooleanExpression, not #{condition.class}. #{@i}"
+            STDERR.puts "#{lineMsg(condition)}Expected BooleanExpression, not \
+                #{condition.class}."
             exit FAIL
         end
 
@@ -153,37 +155,17 @@ class Parser
         if curToken.tokenType == TT::ParenthesisL
             @i += 1
 
-            loop do
-                if curToken.tokenType == TT::Type
-                    if curToken.code == "int"
-                        v = Variable.new VT::Integer, 0
-                    else
-                        v = Variable.new VT::Boolean, false
-                    end
-                    @i += 1
-                else
-                    STDERR.puts "#{lineMsg(curToken)}Must name parameter types \
-                        in function definition."
-                    exit FAIL
-                end
-
-                if curToken.tokenType == TT::Identifier
-                    formals << Function::Formal.new curToken.code, v.type
-                    env.variables[curToken.code] = v
-                    @i += 1
-                else
-                    STDERR.puts "#{lineMsg(curToken)}Invalid formal parameter name: \
-                        #{curToken.code}"
-                    exit FAIL
-                end
-
-                break unless curToken.tokenType == TT::Comma
-                @i += 1
-            end
-
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "#{lineMsg(curToken(-1))}Expected ) after formals."
-                exit FAIL
+                loop do
+                    formals << getFormal env
+                    break unless curToken.tokenType == TT::Comma
+                    @i += 1
+                end
+
+                unless curToken.tokenType == TT::ParenthesisR
+                    STDERR.puts "#{lineMsg(curToken(-1))}Expected )."
+                    exit FAIL
+                end
             end
             @i += 1
         end
@@ -204,6 +186,33 @@ class Parser
         Definition.new name, formals, (Block.new statements), RT::Void, line
     end
 
+    private def getFormal(env)
+        if curToken.tokenType == TT::Type
+            if curToken.code == "int"
+                v = Variable.new VT::Integer, 0
+            else
+                v = Variable.new VT::Boolean, false
+            end
+            @i += 1
+        else
+            STDERR.puts "#{lineMsg(curToken)}Must name parameter types in \
+                function definition."
+            exit FAIL
+        end
+
+        if curToken.tokenType == TT::Identifier
+            formal = Function::Formal.new curToken.code, v.type
+            env.variables[curToken.code] = v
+            @i += 1
+        else
+            STDERR.puts "#{lineMsg(curToken)}Invalid formal parameter name: \
+                #{curToken.code}"
+            exit FAIL
+        end
+
+        formal
+    end
+
     def assign(env)
         id = curToken
         @i += 1
@@ -214,29 +223,24 @@ class Parser
         r = expression env
 
         if r.is_a? IntegerExpression
-            if env.variables.has_key? id.code
-                env.variables[id.code].type = VT::Integer
-                env.variables[id.code].value = 0
-            else
-                env.variables[id.code] = Variable.new VT::Integer, 0
-            end
-
-            Assignment.new id.code, VT::Integer, r, id.line
-
+            type = VT::Integer
+            value = 0
         elsif r.is_a? BooleanExpression
-            if env.variables.has_key? id.code
-                env.variables[id.code].type = VT::Boolean
-                env.variables[id.code].value = false
-            else
-                env.variables[id.code] = Variable.new VT::Boolean, false
-            end
-
-            Assignment.new id.code, VT::Boolean, r, id.line
-
+            type = VT::Boolean
+            value = false
         else
             STDERR.puts "#{lineMsg(id)}Error in variable assignment: #{id.code}"
             exit FAIL
         end
+
+        if env.variables.has_key? id.code
+            env.variables[id.code].type = type
+            env.variables[id.code].value = value
+        else
+            env.variables[id.code] = Variable.new type, value
+        end
+
+        Assignment.new id.code, type, r, id.line
     end
 
     def call(env)
@@ -244,10 +248,9 @@ class Parser
         @i += 1
 
         actuals = [] of Expression
-        numArgs = env.functions[id.code].numArgs
-        #s = (numArgs == 1 ? "" : "s")
 
-        if numArgs > 0 
+        if env.functions[id.code].numArgs > 0 || curToken.tokenType == TT::ParenthesisL
+
             unless curToken.tokenType == TT::ParenthesisL
                 STDERR.puts "#{lineMsg(curToken(-1))}Expected () for passing arguments \
                     to function."
@@ -255,42 +258,8 @@ class Parser
             end
             @i += 1
 
-            j = 0
-
-            loop do
-                arg = expression env
-                t = env.functions[id.code].formals[j].type
-
-                if (arg.is_a? IntegerExpression && t.is_a? VT::Integer) ||
-                        (arg.is_a? BooleanExpression && t.is_a? VT::Boolean)
-
-                    actuals << arg
-                else
-                    STDERR.puts "#{lineMsg(id)}Argument #{j + 1} type does not match \
-                        type signature in #{id.code}."
-
-                    exit FAIL
-                end
-
-                j += 1
-
-                break unless curToken.tokenType == TT::Comma
-
-                unless numArgs > j
-                    STDERR.puts "#{lineMsg(id)}Too many arguments to function #{id.code}. \
-                        Expected #{numArgs}."
-
-                    exit FAIL
-                end
-
-                @i += 1
-            end
-
-            unless j == numArgs
-                STDERR.puts "#{lineMsg(id)}Too few arguments to function #{id.code}. \
-                    Expected #{numArgs}, not #{j}."
-
-                exit FAIL
+            if env.functions[id.code].numArgs > 0
+                actuals = getActuals env, id
             end
 
             unless curToken.tokenType == TT::ParenthesisR
@@ -301,6 +270,52 @@ class Parser
         end
 
         Call.new id.code, actuals, id.line
+    end
+
+    private def getActuals(env, id)
+        actuals = [] of Expression
+
+        numArgs = env.functions[id.code].numArgs
+        #s = (numArgs == 1 ? "" : "s")
+        j = 0
+
+        loop do
+            arg = expression env
+            t = env.functions[id.code].formals[j].type
+
+            if (arg.is_a? IntegerExpression && t.is_a? VT::Integer) ||
+                    (arg.is_a? BooleanExpression && t.is_a? VT::Boolean)
+
+                actuals << arg
+            else
+                STDERR.puts "#{lineMsg(arg)}Argument #{j + 1} type does not match \
+                    type signature in #{id.code}."
+
+                exit FAIL
+            end
+
+            j += 1
+
+            break unless curToken.tokenType == TT::Comma
+
+            unless numArgs > j
+                STDERR.puts "#{lineMsg(id)}Too many arguments to function #{id.code}. \
+                    Expected #{numArgs}."
+
+                exit FAIL
+            end
+
+            @i += 1
+        end
+
+        unless j == numArgs
+            STDERR.puts "#{lineMsg(id)}Too few arguments to function #{id.code}. \
+                Expected #{numArgs}, not #{j}."
+
+            exit FAIL
+        end
+
+        actuals
     end
 
     def expression(env)
