@@ -18,7 +18,8 @@ class Parser
 
     def operatorRaise(operator, operand, expected, side="")
         side += ' ' unless side.empty?
-        
+
+        # Get line number from operand, not operator
         STDERR.puts "#{lineMsg(operator)}For #{operator.code} #{side}operand: \
             expected #{expected}, not #{operand.class}."
         exit FAIL
@@ -166,7 +167,6 @@ class Parser
                     env.variables[curToken.code] = v
                     @i += 1
                 else
-                    # Not a great error message
                     STDERR.puts "#{lineMsg(curToken)}Invalid formal parameter name: \
                         #{curToken.code}"
                     exit FAIL
@@ -177,8 +177,7 @@ class Parser
             end
 
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "#{lineMsg(curToken)}Expected ) after formals, \
-                    not #{curToken.code}."
+                STDERR.puts "#{lineMsg(curToken(-1))}Expected ) after formals."
                 exit FAIL
             end
             @i += 1
@@ -245,7 +244,7 @@ class Parser
 
         if numArgs > 0 
             unless curToken.tokenType == TT::ParenthesisL
-                STDERR.puts "#{lineMsg(curToken)}Expected () for passing arguments \
+                STDERR.puts "#{lineMsg(curToken(-1))}Expected () for passing arguments \
                     to function."
                 exit FAIL
             end
@@ -290,7 +289,7 @@ class Parser
             end
 
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "#{lineMsg(curToken)}Expected ), not #{curToken.code}."
+                STDERR.puts "#{lineMsg(curToken(-1))}Expected )."
                 exit FAIL
             end
             @i += 1
@@ -498,7 +497,7 @@ class Parser
                     BooleanVariable.new id.code
                 end
             else
-                STDERR.puts "#{lineMsg(id)}Uninitialized variable: #{@i} #{id.code}"
+                STDERR.puts "#{lineMsg(id)}Uninitialized variable: #{id.code}"
                 exit FAIL
             end
         elsif curToken.tokenType == TT::ParenthesisL
@@ -506,7 +505,7 @@ class Parser
             e = expression env
 
             unless curToken.tokenType == TT::ParenthesisR
-                STDERR.puts "#{lineMsg(curToken)}Expected ), not #{curToken.code}."
+                STDERR.puts "#{lineMsg(curToken(-1))}Expected )."
                 exit FAIL
             end
 
