@@ -220,7 +220,7 @@ class Lexer
 
             # Anything else
             else
-                STDERR.puts "Unidentified character: #{@i} #{curChar}"
+                STDERR.puts "Unidentified character: #{curChar} #{@i}"
                 exit FAIL
             end
         end

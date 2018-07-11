@@ -39,10 +39,18 @@ class Parser
             @i += 1
             Println.new expression env
         elsif curToken.tokenType == TT::If
-            scope = Environment.new env.variables.dup, env.functions, env.level + 1
+            scope = Environment.new(
+                env.variables.dup,
+                env.functions,
+                env.level + 1
+            )
             conditional scope
         elsif curToken.tokenType == TT::While
-            scope = Environment.new env.variables.dup, env.functions, env.level + 1
+            scope = Environment.new(
+                env.variables.dup,
+                env.functions,
+                env.level + 1
+            )
             whileLoop scope
         elsif curToken.tokenType == TT::Define
             scope = Environment.new(

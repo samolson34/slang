@@ -104,8 +104,13 @@ class If < Statement
     ) end
 
     def evaluate(env)
-        if @condition.evaluate(env)
-            @body.evaluate(env)
+        scope = Environment.new(
+            env.variables.dup,
+            env.functions,
+            env.level + 1
+        )
+        if @condition.evaluate(scope)
+            @body.evaluate(scope)
         end
     end
 end
@@ -117,8 +122,13 @@ class While < Statement
     ) end
 
     def evaluate(env)
-        while @condition.evaluate(env)
-            @body.evaluate(env)
+        scope = Environment.new(
+            env.variables.dup,
+            env.functions,
+            env.level + 1
+        )
+        while @condition.evaluate(scope)
+            @body.evaluate(scope)
         end
     end
 end
@@ -132,6 +142,11 @@ class Definition < Statement
     ) end
 
     def evaluate(env)
+        if env.level > 1
+            STDERR.puts "Must define function at global scope."
+            exit 1
+        end
+
         env.functions[@name] = Function.new(@formals, @body, @returnType)
     end
 end
@@ -144,9 +159,9 @@ class Call < Statement
 
         scope = Environment.new(
             {} of String => Variable,
-            env.functions
+            env.functions,
+            env.level + 1
         )
-
         @actuals.each_with_index do |actual, i|
             if actual.is_a? IntegerExpression
                 t = Variable::VariableType::Integer
@@ -176,7 +191,8 @@ class IntegerVariable < IntegerExpression
     def evaluate(env)
         value = env.variables[@name].value
         unless value.is_a? Int32
-            raise "Integer variable error."
+            STDERR.puts "Integer variable error."
+            exit 1
         end
         value
     end
@@ -219,7 +235,7 @@ class Divide < BinaryArithmetic
         b = @b.evaluate(env)
         if b == 0
             STDERR.puts "Division by zero not supported."
-            exit FAIL
+            exit 1
         end
         @a.evaluate(env) / b
     end
@@ -232,7 +248,7 @@ class Mod < BinaryArithmetic
         b = @b.evaluate(env)
         if b == 0
             STDERR.puts "Modulus zero not supported."
-            exit FAIL
+            exit 1
         end
         @a.evaluate(env) % b
     end
@@ -260,7 +276,8 @@ class BooleanVariable < BooleanExpression
     def evaluate(env)
         value = env.variables[@name].value
         unless value.is_a? Bool
-            raise "Boolean variable error."
+            STDERR.puts "Boolean variable error."
+            exit 1
         end
         value
     end
