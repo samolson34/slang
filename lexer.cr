@@ -37,18 +37,28 @@ class Token
         @tokenType : TokenType,
         @code : String,
         @line : Int32
+        # Track line number for error messages
     ) end
 end
 
+# Usage:
+# lexer = Lexer.new file
+# tokens = lexer.lex
 class Lexer
     private alias TT = Token::TokenType
 
+    # For exit status
     FAIL = 1
 
     @tokens = [] of Token
     @token = ""
+
+    # Character index in file
     @i = 0
+
+    # Line number in file
     @line = 1
+
     @src : String
 
     def initialize(file)
@@ -69,6 +79,7 @@ class Lexer
         @src[@i]
     end
 
+    # For error messages
     def lineMsg
         "Line #{@line} -> "
     end
@@ -184,6 +195,7 @@ class Lexer
                 append TT::Comma
 
             # Number
+            # Only ASCII numbers recognized as integers
             elsif curChar.ascii_number?
                 while @i < @src.size && curChar.ascii_number?
                     take
@@ -191,6 +203,8 @@ class Lexer
                 append TT::Integer
 
             # Identifier
+            # Must start with letter, not just ASCII. Follow with
+            # any letter or number or symbol in set: !@%$^&|*i\-_+/?
             elsif curChar.letter?
                 while @i < @src.size && (
                         curChar.alphanumeric? ||

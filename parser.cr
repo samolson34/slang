@@ -1,10 +1,16 @@
+# Usage:
+# parser = Parser.new tokens
+# program = parser.parse
+# program.evaluate Environment.new
 class Parser
     private alias TT = Token::TokenType
     private alias VT = Variable::VariableType
     private alias RT = Function::ReturnType
     
+    # For exit status
     FAIL = 1
 
+    # Token index
     @i = 0
 
     def initialize(@tokens : Array(Token)) end
@@ -21,12 +27,15 @@ class Parser
         exit FAIL
     end
 
+    # For error messages
     def lineMsg(expr)
         "Line #{expr.line} -> "
     end
 
     def parse
         statements = [] of Statement
+
+        # Environment necessary to maintain scope of variables
         env = Environment.new
 
         until curToken.tokenType == TT::EOF
@@ -46,6 +55,9 @@ class Parser
             @i += 1
             Println.new (expression env), line
         elsif curToken.tokenType == TT::If
+
+            # Variables changed in if are changed in outer scope, too. New
+            # variables in if go away at end.
             scope = Environment.new(
                 env.variables.dup,
                 env.functions,
@@ -53,6 +65,8 @@ class Parser
             )
             conditional scope
         elsif curToken.tokenType == TT::While
+
+            # Scope same as if
             scope = Environment.new(
                 env.variables.dup,
                 env.functions,
@@ -60,6 +74,9 @@ class Parser
             )
             whileLoop scope
         elsif curToken.tokenType == TT::Define
+
+            # New scope for def so function definition can reuse existing
+            # variables
             scope = Environment.new(
                 {} of String => Variable,
                 env.functions,
@@ -72,36 +89,42 @@ class Parser
             elsif env.functions.has_key? curToken.code
                 call env
             else
-                STDERR.puts "#{lineMsg(curToken)}Unexpected identifier: #{curToken.code}"
+                STDERR.puts "#{lineMsg(curToken)}Unexpected identifier: \
+                    #{curToken.code}"
                 exit FAIL
             end
         else
-            STDERR.puts "#{lineMsg(curToken)}Unexpected token: #{curToken.code}"
+            STDERR.puts "#{lineMsg(curToken)}Unexpected token: \
+                #{curToken.code}"
             exit FAIL
         end
     end
 
+    # if
     def conditional(env)
         line = curToken.line
         @i += 1
-        
+
+        # Get condition
         condition = expression env
         unless condition.is_a? BooleanExpression
-            STDERR.puts "#{lineMsg(condition)}Expected BooleanExpression, not \
-                #{condition.class}."
+            STDERR.puts "#{lineMsg(condition)}Expected BooleanExpression, \
+                    not #{condition.class}."
             exit FAIL
         end
 
         body = [] of Statement
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
-                STDERR.puts "#{lineMsg(curToken)}Expected end after if, not EOF."
+                STDERR.puts "#{lineMsg(curToken)}Expected end after if, not \
+                    EOF."
                 exit FAIL
             end
             body << statement env
         end
         # Check for else? else if?
 
+        # end
         @i += 1
 
         If.new condition, (Block.new body), line
@@ -111,22 +134,25 @@ class Parser
         line = curToken.line
         @i += 1
 
+        # Get condition
         condition = expression env
         unless condition.is_a? BooleanExpression
-            STDERR.puts "#{lineMsg(condition)}Expected BooleanExpression, not \
-                #{condition.class}."
+            STDERR.puts "#{lineMsg(condition)}Expected BooleanExpression, \
+                not #{condition.class}."
             exit FAIL
         end
 
         body = [] of Statement
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
-                STDERR.puts "#{lineMsg(curToken)}Expected end after while, not EOF."
+                STDERR.puts "#{lineMsg(curToken)}Expected end after while, \
+                    not EOF."
                 exit FAIL
             end
             body << statement env
         end
 
+        # end
         @i += 1
 
         While.new condition, (Block.new body), line
@@ -134,27 +160,32 @@ class Parser
 
     def define(env)
         if env.level > 1
-           STDERR.puts "#{lineMsg(curToken)}Must define function at global scope."
-           exit FAIL
+            STDERR.puts "#{lineMsg(curToken)}Must define function at global \
+                scope."
+            exit FAIL
         end
 
         line = curToken.line
         @i += 1
 
         unless curToken.tokenType == TT::Identifier
-            STDERR.puts "#{lineMsg(curToken)}Identifier expected after def, not \
-                #{curToken.code}." 
+            STDERR.puts "#{lineMsg(curToken)}Identifier expected after def, \
+                not #{curToken.code}." 
             exit FAIL
         end
 
         name = curToken.code
         @i += 1
 
+        # Formals are the formal parameter variables:
+        # def function(int formal1, bool formal2) end
         formals = [] of Function::Formal
 
+        # In function defined with no parameters, parentheses are optional
         if curToken.tokenType == TT::ParenthesisL
             @i += 1
 
+            # If it doesn't look like function(), get formals
             unless curToken.tokenType == TT::ParenthesisR
                 loop do
                     formals << getFormal env
@@ -170,23 +201,35 @@ class Parser
             @i += 1
         end
 
-        statements = [] of Statement
-        env.functions[name] = Function.new formals, (Block.new statements), RT::Void
+        # Add function to environment. Body not necessary, because parser only
+        # checks whether function exists.
+        # This may change with updates to return types.
+        body = [] of Statement
+        env.functions[name] = Function.new(
+            formals,
+            (Block.new body),
+            RT::Void
+        )
 
+        # Get statements
         until curToken.tokenType == TT::End
             if curToken.tokenType == TT::EOF
-                STDERR.puts "#{lineMsg(curToken)}Expected end after def, not EOF."
+                STDERR.puts "#{lineMsg(curToken)}Expected end after def, not \
+                    EOF."
                 exit FAIL
             end
-            statements << statement env
+            body << statement env
         end
 
         @i += 1
 
-        Definition.new name, formals, (Block.new statements), RT::Void, line
+        Definition.new name, formals, (Block.new body), RT::Void, line
     end
 
+    # Helper function
+    # Probably doesn't need to be private
     private def getFormal(env)
+        # Get type
         if curToken.tokenType == TT::Type
             if curToken.code == "int"
                 v = Variable.new VT::Integer, 0
@@ -200,6 +243,7 @@ class Parser
             exit FAIL
         end
 
+        # Get name
         if curToken.tokenType == TT::Identifier
             formal = Function::Formal.new curToken.code, v.type
             env.variables[curToken.code] = v
@@ -220,6 +264,7 @@ class Parser
         # = sign
         @i += 1
 
+        # Right side of =
         r = expression env
 
         if r.is_a? IntegerExpression
@@ -229,35 +274,48 @@ class Parser
             type = VT::Boolean
             value = false
         else
-            STDERR.puts "#{lineMsg(id)}Error in variable assignment: #{id.code}"
+            STDERR.puts "#{lineMsg(id)}Error in variable assignment: \
+                #{id.code}"
             exit FAIL
         end
 
         if env.variables.has_key? id.code
+            # Variable already exists: changing object instead of replacing.
+            # This way parent environments receive changes.
             env.variables[id.code].type = type
             env.variables[id.code].value = value
         else
+            # New variable
             env.variables[id.code] = Variable.new type, value
         end
 
         Assignment.new id.code, type, r, id.line
     end
 
+    # Function call
     def call(env)
         id = curToken
         @i += 1
 
+        # Actuals are expressions passed in as arguments to function:
+        # function(actual 1, (actual2.1 && actual2.2))
         actuals = [] of Expression
 
-        if env.functions[id.code].numArgs > 0 || curToken.tokenType == TT::ParenthesisL
+        # Function has no parameters? Skip.
+        # But in calling a function with no parameters, parentheses are
+        # optional. Enter to pass parentheses
+        if env.functions[id.code].numArgs > 0 ||
+                curToken.tokenType == TT::ParenthesisL
 
             unless curToken.tokenType == TT::ParenthesisL
-                STDERR.puts "#{lineMsg(curToken(-1))}Expected () for passing arguments \
-                    to function."
+                STDERR.puts "#{lineMsg(curToken(-1))}Expected () for passing \
+                    arguments to function."
                 exit FAIL
             end
             @i += 1
 
+            # Check again because some people are in here with parentheses but
+            # no parameters
             if env.functions[id.code].numArgs > 0
                 actuals = getActuals env, id
             end
@@ -272,45 +330,46 @@ class Parser
         Call.new id.code, actuals, id.line
     end
 
+    # Helper function
+    # Probably doesn't need to be private
     private def getActuals(env, id)
         actuals = [] of Expression
 
         numArgs = env.functions[id.code].numArgs
-        #s = (numArgs == 1 ? "" : "s")
-        j = 0
+        #s = (numArgs == 1 ? "" : "s")  # Singular/plural?
 
         loop do
+            # Ensure expression type matches formal type
             arg = expression env
-            t = env.functions[id.code].formals[j].type
+            type = env.functions[id.code].formals[actuals.size].type
 
-            if (arg.is_a? IntegerExpression && t.is_a? VT::Integer) ||
-                    (arg.is_a? BooleanExpression && t.is_a? VT::Boolean)
+            if (arg.is_a? IntegerExpression && type.is_a? VT::Integer) ||
+                    (arg.is_a? BooleanExpression && type.is_a? VT::Boolean)
 
                 actuals << arg
             else
-                STDERR.puts "#{lineMsg(arg)}Argument #{j + 1} type does not match \
-                    type signature in #{id.code}."
+                STDERR.puts "#{lineMsg(arg)}Argument #{actuals.size + 1} \
+                    type does not match type signature in #{id.code}."
 
                 exit FAIL
             end
-
-            j += 1
 
             break unless curToken.tokenType == TT::Comma
+            @i += 1
 
-            unless numArgs > j
-                STDERR.puts "#{lineMsg(id)}Too many arguments to function #{id.code}. \
-                    Expected #{numArgs}."
+            # Must not be too many arguments
+            unless numArgs > actuals.size
+                STDERR.puts "#{lineMsg(id)}Too many arguments to function \
+                    #{id.code}. \ Expected #{numArgs}."
 
                 exit FAIL
             end
-
-            @i += 1
         end
 
-        unless j == numArgs
-            STDERR.puts "#{lineMsg(id)}Too few arguments to function #{id.code}. \
-                Expected #{numArgs}, not #{j}."
+        # Must not be too few arguments
+        unless actuals.size == numArgs
+            STDERR.puts "#{lineMsg(id)}Too few arguments to function \
+                #{id.code}. Expected #{numArgs}, not #{actuals.size}."
 
             exit FAIL
         end
@@ -318,6 +377,7 @@ class Parser
         actuals
     end
 
+    # Logic behind order of precedence starts here
     def expression(env)
         logicalOr env
     end
