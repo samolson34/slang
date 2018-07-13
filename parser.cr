@@ -262,6 +262,7 @@ class Parser
         @i += 1
 
         # = sign
+        sign = curToken
         @i += 1
 
         # Right side of =

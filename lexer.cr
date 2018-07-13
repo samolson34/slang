@@ -2,6 +2,7 @@ class Token
     enum TokenType
         And
         Assign
+        AssignPlus
         Bang
         Boolean
         Comma
@@ -120,7 +121,12 @@ class Lexer
             # Plus
             elsif curChar == '+'
                 take
-                append TT::Plus
+                if curChar == '='
+                    take
+                    append TT::AssignPlus
+                else
+                    append TT::Plus
+                end
 
             # Minus
             elsif curChar == '-'
