@@ -8,6 +8,7 @@ class Environment
     ) end
 end
 
+# This class is only used in Environment, not as a type of expression
 class Variable
     enum VariableType
         Boolean
@@ -19,6 +20,7 @@ class Variable
     def initialize(@type : VariableType, @value : Int32 | Bool) end
 end
 
+# This class is only used in Environment, not as a type of expression
 class Function
     enum ReturnType
         Boolean
@@ -26,6 +28,9 @@ class Function
         Void
     end
 
+    # Formals are the formal parameter variables:
+    # def function(int formal1, bool formal2) end
+    # Used in Definition and Parser::define
     class Formal
         getter name, type
 
@@ -48,12 +53,14 @@ class Function
     end
 end
 
+# Block is Array of Statements. Used in If, While, Definition, Parser::define,
+# and to collect the entire program
 class Block
     def initialize(@statements : Array(Statement)) end
 
     def evaluate(env : Environment)
         @statements.each do |statement|
-            statement.evaluate(env)
+            statement.evaluate env
         end
     end
 end
@@ -68,13 +75,13 @@ class Print < Statement
     def initialize(@message : Expression, @line) end
 
     def evaluate(env)
-        print @message.evaluate(env)
+        print @message.evaluate env
     end
 end
 
 class Println < Print
     def evaluate(env)
-        puts @message.evaluate(env)
+        puts @message.evaluate env
     end
 end
 
@@ -89,12 +96,12 @@ class Assignment < Statement
     def evaluate(env)
         if env.variables.has_key? @name
             env.variables[@name].type = @type
-            env.variables[@name].value = @expression.evaluate(env)
+            env.variables[@name].value = @expression.evaluate env
         else
             env.variables[@name] =
                 Variable.new(
                     @type,
-                    @expression.evaluate(env)
+                    @expression.evaluate env
                 )
         end
     end
@@ -108,13 +115,15 @@ class If < Statement
     ) end
 
     def evaluate(env)
+        # Variables changed in if are changed in outer scope, too. New
+        # variables in if go away at end.
         scope = Environment.new(
             env.variables.dup,
             env.functions,
             env.level + 1
         )
-        if @condition.evaluate(scope)
-            @body.evaluate(scope)
+        if @condition.evaluate scope
+            @body.evaluate scope
         end
     end
 end
@@ -127,13 +136,14 @@ class While < Statement
     ) end
 
     def evaluate(env)
+        # Scope same as if
         scope = Environment.new(
             env.variables.dup,
             env.functions,
             env.level + 1
         )
-        while @condition.evaluate(scope)
-            @body.evaluate(scope)
+        while @condition.evaluate scope
+            @body.evaluate scope
         end
     end
 end
@@ -149,11 +159,12 @@ class Definition < Statement
 
     def evaluate(env)
         if env.level > 1
-            STDERR.puts "Line #{@line} -> Must define function at global scope."
+            STDERR.puts "Line #{@line} -> Must define function at global \
+                scope."
             exit 1
         end
 
-        env.functions[@name] = Function.new(@formals, @body, @returnType)
+        env.functions[@name] = Function.new @formals, @body, @returnType
     end
 end
 
@@ -163,6 +174,8 @@ class Call < Statement
     def evaluate(env)
         func = env.functions[@name]
 
+        # Function call can't see previous Environment's variables, but can
+        # see all functions including itself
         scope = Environment.new(
             {} of String => Variable,
             env.functions,
@@ -176,7 +189,7 @@ class Call < Statement
             end
 
             name = func.formals[i].name
-            scope.variables[name] = Variable.new(t, actual.evaluate env)
+            scope.variables[name] = Variable.new t, actual.evaluate env
         end
 
         func.body.evaluate scope
@@ -220,7 +233,7 @@ abstract class UnaryArithmetic < ArithmeticOperator end
 
 class Negate < UnaryArithmetic
     def evaluate(env)
-        -@a.evaluate(env)
+        -@a.evaluate env
     end
 end
 
@@ -236,7 +249,7 @@ end
 
 class Divide < BinaryArithmetic
     def evaluate(env)
-        b = @b.evaluate(env)
+        b = @b.evaluate env
         if b == 0
             STDERR.puts "Line #{@line} -> Division by zero not supported."
             exit 1
@@ -247,7 +260,7 @@ end
 
 class Mod < BinaryArithmetic
     def evaluate(env)
-        b = @b.evaluate(env)
+        b = @b.evaluate env
         if b == 0
             STDERR.puts "Line #{@line} -> Modulus zero not supported."
             exit 1
@@ -299,7 +312,7 @@ class Not < BooleanExpression
     def initialize(@a : BooleanExpression, @line) end
 
     def evaluate(env)
-        !@a.evaluate(env)
+        !@a.evaluate env
     end
 end
 

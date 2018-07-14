@@ -13,13 +13,13 @@ class Token
         Boolean
         Comma
         Define
-        End
         EOF
+        End
         Equal
-        If
         Greater
         GreaterOrEqual
         Identifier
+        If
         Integer
         Less
         LessOrEqual
@@ -43,8 +43,9 @@ class Token
     def initialize(
         @type : TokenType,
         @code : String,
-        @line : Int32
+
         # Track line number for error messages
+        @line : Int32
     ) end
 end
 
@@ -241,8 +242,8 @@ class Lexer
                 append TT::Integer
 
             # Identifier
-            # Must start with letter, not just ASCII. Follow with
-            # any letter or number or symbol in set: !@%$^&|*i\-_+/?
+            # Must start with letter, not just ASCII. Follow with any letter
+            # or number or symbol in set: !@%$^&|*i\-_+/?
             elsif curChar.letter?
                 while @i < @src.size && (
                         curChar.alphanumeric? ||
