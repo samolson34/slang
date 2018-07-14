@@ -1,4 +1,3 @@
-#!/home/bassbash/git-repos/slang
 def timeChange(int tempo, int numer, int denom)
     println tempo * numer / denom
 end

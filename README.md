@@ -15,10 +15,11 @@ Run source file with:
 ~ general purpose  
 ~ more in the future?
 
-This project supports integer literals, boolean literals, int
+This project supports integer literals, boolean literals, integer
 variables, boolean variables, integer arithmetic (`+-*/%`), equality
-(`== !=`) integer comparison (`< > <= >=`), boolean logic (`&& || !`),
-functions, parentheses, print statements, and comments.
+(`== !=`), integer comparison (`< > <= >=`), boolean logic (`&& || !`),
+"quick assignment" (`*= += &=` etc), functions, parentheses, print
+statements, and comments.
 
 * Identifiers can have hyphens and more.  
 * Write everything in one line if you want.  

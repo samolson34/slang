@@ -38,7 +38,7 @@ class Parser
         # Environment necessary to maintain scope of variables
         env = Environment.new
 
-        until curToken.tokenType == TT::EOF
+        until curToken.type == TT::EOF
             statements << statement env
         end
 
@@ -46,16 +46,15 @@ class Parser
     end
 
     def statement(env)
-        if curToken.tokenType == TT::Print
+        if curToken.type == TT::Print
             line = curToken.line
             @i += 1
             Print.new (expression env), line
-        elsif curToken.tokenType == TT::Println
+        elsif curToken.type == TT::Println
             line = curToken.line
             @i += 1
             Println.new (expression env), line
-        elsif curToken.tokenType == TT::If
-
+        elsif curToken.type == TT::If
             # Variables changed in if are changed in outer scope, too. New
             # variables in if go away at end.
             scope = Environment.new(
@@ -64,8 +63,7 @@ class Parser
                 env.level + 1
             )
             conditional scope
-        elsif curToken.tokenType == TT::While
-
+        elsif curToken.type == TT::While
             # Scope same as if
             scope = Environment.new(
                 env.variables.dup,
@@ -73,8 +71,7 @@ class Parser
                 env.level + 1
             )
             whileLoop scope
-        elsif curToken.tokenType == TT::Define
-
+        elsif curToken.type == TT::Define
             # New scope for def so function definition can reuse existing
             # variables
             scope = Environment.new(
@@ -83,9 +80,22 @@ class Parser
                 env.level + 1
             )
             define scope
-        elsif curToken.tokenType == TT::Identifier
-            if curToken(1).tokenType == TT::Assign
+        elsif curToken.type == TT::Identifier
+            if curToken(1).type == TT::Assign
                 assign env
+            elsif curToken(1).type == TT::AssignMultiply ||
+                    curToken(1).type == TT::AssignDivide ||
+                    curToken(1).type == TT::AssignMod ||
+                    curToken(1).type == TT::AssignAdd ||
+                    curToken(1).type == TT::AssignSubtract
+
+                # *= /= %/ += -=
+                arithmeticAssign env
+            elsif curToken(1).type == TT::AssignAnd ||
+                    curToken(1).type == TT::AssignOr
+
+                # &= |=
+                logicalAssign env
             elsif env.functions.has_key? curToken.code
                 call env
             else
@@ -114,8 +124,8 @@ class Parser
         end
 
         body = [] of Statement
-        until curToken.tokenType == TT::End
-            if curToken.tokenType == TT::EOF
+        until curToken.type == TT::End
+            if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg(curToken)}Expected end after if, not \
                     EOF."
                 exit FAIL
@@ -143,8 +153,8 @@ class Parser
         end
 
         body = [] of Statement
-        until curToken.tokenType == TT::End
-            if curToken.tokenType == TT::EOF
+        until curToken.type == TT::End
+            if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg(curToken)}Expected end after while, \
                     not EOF."
                 exit FAIL
@@ -168,7 +178,7 @@ class Parser
         line = curToken.line
         @i += 1
 
-        unless curToken.tokenType == TT::Identifier
+        unless curToken.type == TT::Identifier
             STDERR.puts "#{lineMsg(curToken)}Identifier expected after def, \
                 not #{curToken.code}." 
             exit FAIL
@@ -182,18 +192,18 @@ class Parser
         formals = [] of Function::Formal
 
         # In function defined with no parameters, parentheses are optional
-        if curToken.tokenType == TT::ParenthesisL
+        if curToken.type == TT::ParenthesisL
             @i += 1
 
             # If it doesn't look like function(), get formals
-            unless curToken.tokenType == TT::ParenthesisR
+            unless curToken.type == TT::ParenthesisR
                 loop do
                     formals << getFormal env
-                    break unless curToken.tokenType == TT::Comma
+                    break unless curToken.type == TT::Comma
                     @i += 1
                 end
 
-                unless curToken.tokenType == TT::ParenthesisR
+                unless curToken.type == TT::ParenthesisR
                     STDERR.puts "#{lineMsg(curToken(-1))}Expected )."
                     exit FAIL
                 end
@@ -212,8 +222,8 @@ class Parser
         )
 
         # Get statements
-        until curToken.tokenType == TT::End
-            if curToken.tokenType == TT::EOF
+        until curToken.type == TT::End
+            if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg(curToken)}Expected end after def, not \
                     EOF."
                 exit FAIL
@@ -230,7 +240,7 @@ class Parser
     # Probably doesn't need to be private
     private def getFormal(env)
         # Get type
-        if curToken.tokenType == TT::Type
+        if curToken.type == TT::Type
             if curToken.code == "int"
                 v = Variable.new VT::Integer, 0
             else
@@ -244,7 +254,7 @@ class Parser
         end
 
         # Get name
-        if curToken.tokenType == TT::Identifier
+        if curToken.type == TT::Identifier
             formal = Function::Formal.new curToken.code, v.type
             env.variables[curToken.code] = v
             @i += 1
@@ -262,7 +272,6 @@ class Parser
         @i += 1
 
         # = sign
-        sign = curToken
         @i += 1
 
         # Right side of =
@@ -293,6 +302,62 @@ class Parser
         Assignment.new id.code, type, r, id.line
     end
 
+    def arithmeticAssign(env)
+        # Let atom get variable because BinaryArithmetic takes in two
+        # IntegerExpressions
+        l = atom env
+
+        operator = curToken
+        @i += 1
+
+        unless l.is_a? IntegerVariable
+            operatorRaise operator, l, IntegerVariable, "L"
+        end
+
+        r = expression env
+
+        unless r.is_a? IntegerExpression
+            operatorRaise operator, r, IntegerExpression, "R"
+        end
+
+        type = VT::Integer
+        if operator.type == TT::AssignMultiply
+            Assignment.new l.name, type, Multiply.new(l, r, l.line), l.line
+        elsif operator.type == TT::AssignDivide
+            Assignment.new l.name, type, Divide.new(l, r, l.line), l.line
+        elsif operator.type == TT::AssignMod
+            Assignment.new l.name, type, Mod.new(l, r, l.line), l.line
+        elsif operator.type == TT::AssignAdd
+            Assignment.new l.name, type, Add.new(l, r, l.line), l.line
+        else
+            Assignment.new l.name, type, Subtract.new(l, r, l.line), l.line
+        end
+    end
+
+    def logicalAssign(env)
+        l = atom env
+
+        operator = curToken
+        @i += 1
+
+        unless l.is_a? BooleanVariable
+            operatorRaise operator, l, BooleanVariable, "L"
+        end
+
+        r = expression env
+
+        unless r.is_a? BooleanExpression
+            operatorRaise operator, r, BooleanExpression, "R"
+        end
+
+        type = VT::Boolean
+        if operator.type == TT::AssignAnd
+            Assignment.new l.name, type, And.new(l, r, l.line), l.line
+        else
+            Assignment.new l.name, type, Or.new(l, r, l.line), l.line
+        end
+    end
+
     # Function call
     def call(env)
         id = curToken
@@ -306,9 +371,9 @@ class Parser
         # But in calling a function with no parameters, parentheses are
         # optional. Enter to pass parentheses
         if env.functions[id.code].numArgs > 0 ||
-                curToken.tokenType == TT::ParenthesisL
+                curToken.type == TT::ParenthesisL
 
-            unless curToken.tokenType == TT::ParenthesisL
+            unless curToken.type == TT::ParenthesisL
                 STDERR.puts "#{lineMsg(curToken(-1))}Expected () for passing \
                     arguments to function."
                 exit FAIL
@@ -321,7 +386,7 @@ class Parser
                 actuals = getActuals env, id
             end
 
-            unless curToken.tokenType == TT::ParenthesisR
+            unless curToken.type == TT::ParenthesisR
                 STDERR.puts "#{lineMsg(curToken(-1))}Expected )."
                 exit FAIL
             end
@@ -355,7 +420,7 @@ class Parser
                 exit FAIL
             end
 
-            break unless curToken.tokenType == TT::Comma
+            break unless curToken.type == TT::Comma
             @i += 1
 
             # Must not be too many arguments
@@ -385,7 +450,7 @@ class Parser
 
     def logicalOr(env)
         a = logicalAnd env
-        while curToken.tokenType == TT::Or
+        while curToken.type == TT::Or
             operator = curToken
             @i += 1
 
@@ -406,7 +471,7 @@ class Parser
 
     def logicalAnd(env)
         a = relational env
-        while curToken.tokenType == TT::And
+        while curToken.type == TT::And
             operator = curToken
             @i += 1
 
@@ -427,13 +492,13 @@ class Parser
 
     def relational(env)
         a = comparison env
-        while curToken.tokenType == TT::Equal ||
-                curToken.tokenType == TT::NotEqual
+        while curToken.type == TT::Equal ||
+                curToken.type == TT::NotEqual
 
             operator = curToken
             @i += 1
             b = comparison env
-            if operator.tokenType == TT::Equal
+            if operator.type == TT::Equal
                 a = Equal.new a, b, a.line
             else
                 a = NotEqual.new a, b, a.line
@@ -444,10 +509,10 @@ class Parser
 
     def comparison(env)
         a = additive env
-        while curToken.tokenType == TT::Greater ||
-                curToken.tokenType == TT::GreaterOrEqual ||
-                curToken.tokenType == TT::LessOrEqual ||
-                curToken.tokenType == TT::Less
+        while curToken.type == TT::Greater ||
+                curToken.type == TT::GreaterOrEqual ||
+                curToken.type == TT::LessOrEqual ||
+                curToken.type == TT::Less
 
             operator = curToken
             @i += 1
@@ -462,11 +527,11 @@ class Parser
                 operatorRaise operator, b, IntegerExpression, "R"
             end
 
-            if operator.tokenType == TT::Greater
+            if operator.type == TT::Greater
                 a = Greater.new a, b, a.line
-            elsif operator.tokenType == TT::GreaterOrEqual
+            elsif operator.type == TT::GreaterOrEqual
                 a = GreaterOrEqual.new a, b, a.line
-            elsif operator.tokenType == TT::LessOrEqual
+            elsif operator.type == TT::LessOrEqual
                 a = LessOrEqual.new a, b, a.line
             else
                 a = Less.new a, b, a.line
@@ -477,8 +542,8 @@ class Parser
 
     def additive(env)
         a = multiplicative env
-        while curToken.tokenType == TT::Plus ||
-                curToken.tokenType == TT::Minus
+        while curToken.type == TT::Plus ||
+                curToken.type == TT::Minus
 
             operator = curToken
             @i += 1
@@ -493,7 +558,7 @@ class Parser
                 operatorRaise operator, b, IntegerExpression, "R"
             end
 
-            if operator.tokenType == TT::Plus
+            if operator.type == TT::Plus
                 a = Add.new a, b, a.line
             else
                 a = Subtract.new a, b, a.line
@@ -504,9 +569,9 @@ class Parser
 
     def multiplicative(env)
         a = unary env
-        while curToken.tokenType == TT::Star ||
-                curToken.tokenType == TT::Slash ||
-                curToken.tokenType == TT::Percent
+        while curToken.type == TT::Star ||
+                curToken.type == TT::Slash ||
+                curToken.type == TT::Percent
 
             operator = curToken
             @i += 1
@@ -521,9 +586,9 @@ class Parser
                 operatorRaise operator, b, IntegerExpression, "R"
             end
 
-            if operator.tokenType == TT::Star
+            if operator.type == TT::Star
                 a = Multiply.new a, b, a.line
-            elsif operator.tokenType == TT::Slash
+            elsif operator.type == TT::Slash
                 a = Divide.new a, b, a.line
             else
                 a = Mod.new a, b, a.line
@@ -533,7 +598,7 @@ class Parser
     end
 
     def unary(env)
-        if curToken.tokenType == TT::Minus
+        if curToken.type == TT::Minus
             operator = curToken
             @i += 1
             a = atom env
@@ -543,7 +608,7 @@ class Parser
             end
 
             Negate.new a, a.line
-        elsif curToken.tokenType == TT::Bang
+        elsif curToken.type == TT::Bang
             operator = curToken
             @i += 1
             a = atom env
@@ -559,15 +624,15 @@ class Parser
     end
 
     def atom(env)
-        if curToken.tokenType == TT::Integer
+        if curToken.type == TT::Integer
             int = Integer.new curToken.code.to_i, curToken.line
             @i += 1
             int
-        elsif curToken.tokenType == TT::Boolean
+        elsif curToken.type == TT::Boolean
             bool = Boolean.new (curToken.code == "true"), curToken.line
             @i += 1
             bool
-        elsif curToken.tokenType == TT::Identifier
+        elsif curToken.type == TT::Identifier
             id = curToken
             @i += 1
 
@@ -581,11 +646,11 @@ class Parser
                 STDERR.puts "#{lineMsg(id)}Uninitialized variable: #{id.code}"
                 exit FAIL
             end
-        elsif curToken.tokenType == TT::ParenthesisL
+        elsif curToken.type == TT::ParenthesisL
             @i += 1
             e = expression env
 
-            unless curToken.tokenType == TT::ParenthesisR
+            unless curToken.type == TT::ParenthesisR
                 STDERR.puts "#{lineMsg(curToken(-1))}Expected )."
                 exit FAIL
             end

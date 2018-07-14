@@ -3,9 +3,10 @@ def no-arg
 end
 
 def two-arg(int one, bool two)
-    x = one + 1
+    two |= false
+    one += 1
     if two
-        println x
+        println one
     end
 end
 

@@ -190,6 +190,8 @@ abstract class IntegerExpression < Expression
 end
 
 class IntegerVariable < IntegerExpression
+    getter name
+
     def initialize(@name : String, @line) end
 
     def evaluate(env)
@@ -271,6 +273,8 @@ abstract class BooleanExpression < Expression
 end
 
 class BooleanVariable < BooleanExpression
+    getter name
+
     def initialize(@name : String, @line) end
 
     def evaluate(env)

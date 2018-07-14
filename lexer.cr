@@ -2,7 +2,13 @@ class Token
     enum TokenType
         And
         Assign
-        AssignPlus
+        AssignAdd
+        AssignAnd
+        AssignDivide
+        AssignMod
+        AssignMultiply
+        AssignOr
+        AssignSubtract
         Bang
         Boolean
         Comma
@@ -32,10 +38,10 @@ class Token
         While
     end
 
-    getter tokenType, code, line
+    getter type, code, line
 
     def initialize(
-        @tokenType : TokenType,
+        @type : TokenType,
         @code : String,
         @line : Int32
         # Track line number for error messages
@@ -71,8 +77,8 @@ class Lexer
         @i += 1
     end
 
-    def append(tokenType)
-        @tokens << Token.new tokenType, @token, @line
+    def append(type)
+        @tokens << Token.new type, @token, @line
         @token = ""
     end
 
@@ -106,24 +112,39 @@ class Lexer
             # Star
             elsif curChar == '*'
                 take
-                append TT::Star
+                if curChar == '='
+                    take
+                    append TT::AssignMultiply
+                else
+                    append TT::Star
+                end
 
             # Slash
             elsif curChar == '/'
                 take
-                append TT::Slash
+                if curChar == '='
+                    take
+                    append TT::AssignDivide
+                else
+                    append TT::Slash
+                end
 
             # Percent
             elsif curChar == '%'
                 take
-                append TT::Percent
+                if curChar == '='
+                    take
+                    append TT::AssignMod
+                else
+                    append TT::Percent
+                end
 
             # Plus
             elsif curChar == '+'
                 take
                 if curChar == '='
                     take
-                    append TT::AssignPlus
+                    append TT::AssignAdd
                 else
                     append TT::Plus
                 end
@@ -131,7 +152,12 @@ class Lexer
             # Minus
             elsif curChar == '-'
                 take
-                append TT::Minus
+                if curChar == '='
+                    take
+                    append TT::AssignSubtract
+                else
+                    append TT::Minus
+                end
 
             # Equal
             elsif curChar == '='
@@ -179,6 +205,9 @@ class Lexer
                 if curChar == '|'
                     take
                     append TT::Or
+                elsif curChar == '='
+                    take
+                    append TT::AssignOr
                 else
                     STDERR.puts "#{lineMsg}Bitwise operations not supported."
                     exit FAIL
@@ -190,6 +219,9 @@ class Lexer
                 if curChar == '&'
                     take
                     append TT::And
+                elsif curChar == '='
+                    take
+                    append TT::AssignAnd
                 else
                     STDERR.puts "#{lineMsg}Bitwise operations not supported."
                     exit FAIL
