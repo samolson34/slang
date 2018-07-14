@@ -110,7 +110,8 @@ end
 class If < Statement
     def initialize(
         @condition : BooleanExpression,
-        @body : Block,
+        @ifBody : Block,
+        @elseBody : Block,
         @line
     ) end
 
@@ -123,7 +124,9 @@ class If < Statement
             env.level + 1
         )
         if @condition.evaluate scope
-            @body.evaluate scope
+            @ifBody.evaluate scope
+        else
+            @elseBody.evaluate scope
         end
     end
 end

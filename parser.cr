@@ -123,21 +123,34 @@ class Parser
             exit FAIL
         end
 
-        body = [] of Statement
-        until curToken.type == TT::End
+        ifBody = [] of Statement
+        until curToken.type == TT::End || curToken.type == TT::Else
             if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg curToken}Expected end after if, not \
                     EOF."
                 exit FAIL
             end
-            body << statement env
+            ifBody << statement env
         end
-        # Check for else? else if?
+
+        # else
+        elseBody = [] of Statement
+        if curToken.type == TT::Else
+            @i += 1
+            until curToken.type == TT::End
+                if curToken.type == TT::EOF
+                    STDERR.puts "#{lineMsg curToken}Expected end after else, \
+                        not EOF."
+                    exit FAIL
+                end
+                elseBody << statement env
+            end
+        end
 
         # end
         @i += 1
 
-        If.new condition, (Block.new body), line
+        If.new condition, Block.new(ifBody), Block.new(elseBody), line
     end
 
     def whileLoop(env)
@@ -165,7 +178,7 @@ class Parser
         # end
         @i += 1
 
-        While.new condition, (Block.new body), line
+        While.new condition, Block.new(body), line
     end
 
     def define(env)
@@ -217,7 +230,7 @@ class Parser
         body = [] of Statement
         env.functions[name] = Function.new(
             formals,
-            (Block.new body),
+            Block.new(body),
             RT::Void
         )
 
@@ -233,7 +246,7 @@ class Parser
 
         @i += 1
 
-        Definition.new name, formals, (Block.new body), RT::Void, line
+        Definition.new name, formals, Block.new(body), RT::Void, line
     end
 
     # Helper function

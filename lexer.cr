@@ -14,6 +14,7 @@ class Token
         Comma
         Define
         EOF
+        Else
         End
         Equal
         Greater
@@ -260,6 +261,8 @@ class Lexer
                     append TT::Println
                 elsif @token == "if"
                     append TT::If
+                elsif @token == "else"
+                    append TT::Else
                 elsif @token == "while"
                     append TT::While
                 elsif @token == "def"
