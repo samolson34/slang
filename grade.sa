@@ -1,17 +1,13 @@
 def grade(int score)
     if score >= 90
         println 1
-    end
-    if score < 90 && score >= 80
+    elf score >= 80
         println 2
-    end
-    if score < 80 && score >= 70
+    elf score >= 70
         println 3
-    end
-    if score < 70 && score >= 60
+    elf score >= 60
         println 4
-    end
-    if score < 60
+else
         println 5
     end
 end

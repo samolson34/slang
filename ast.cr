@@ -109,8 +109,9 @@ end
 
 class If < Statement
     def initialize(
-        @condition : BooleanExpression,
+        @ifCondition : BooleanExpression,
         @ifBody : Block,
+        @elfBodies : Array(Tuple(BooleanExpression, Block)),
         @elseBody : Block,
         @line
     ) end
@@ -123,10 +124,24 @@ class If < Statement
             env.functions,
             env.level + 1
         )
-        if @condition.evaluate scope
+
+        if @ifCondition.evaluate scope
             @ifBody.evaluate scope
         else
-            @elseBody.evaluate scope
+            # Loop allows for infinite elfs
+            done = false
+            i = 0
+            while !done && i < @elfBodies.size
+                done = @elfBodies[i].first.evaluate scope
+                if done
+                    @elfBodies[i].last.evaluate scope
+                end
+                i += 1
+            end
+
+            if !done
+                @elseBody.evaluate scope
+            end
         end
     end
 end

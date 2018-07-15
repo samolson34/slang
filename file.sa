@@ -41,11 +41,10 @@ if x > -10
     print 1
     print 1
     println 0
-else if x < -10
+elf x < -10
     print 5
     print 4
     println 111
-end
 end
 
 # 0

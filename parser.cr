@@ -115,22 +115,55 @@ class Parser
         line = curToken.line
         @i += 1
 
-        # Get condition
-        condition = expression env
-        unless condition.is_a? BooleanExpression
-            STDERR.puts "#{lineMsg condition}Expected BooleanExpression, \
-                not #{condition.class}."
+        # Get if condition
+        ifCondition = expression env
+        unless ifCondition.is_a? BooleanExpression
+            STDERR.puts "#{lineMsg ifCondition}Expected BooleanExpression, \
+                not #{ifCondition.class}."
             exit FAIL
         end
 
         ifBody = [] of Statement
-        until curToken.type == TT::End || curToken.type == TT::Else
+        until curToken.type == TT::Elf ||
+                curToken.type == TT::Else ||
+                curToken.type == TT::End
+
             if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg curToken}Expected end after if, not \
                     EOF."
                 exit FAIL
             end
             ifBody << statement env
+        end
+
+        # elf (else if)
+        elfBodies = [] of Tuple(BooleanExpression, Block)
+        while curToken.type == TT::Elf
+            @i += 1
+            j = elfBodies.size
+
+            # Get condition
+            elfCondition = expression env
+            unless elfCondition.is_a? BooleanExpression
+                STDERR.puts "#{lineMsg elfCondition}Expected \
+                    BooleanExpression, not #{elfCondition.class}."
+                exit FAIL
+            end
+
+            elfBody = [] of Statement
+            until curToken.type == TT::Elf ||
+                    curToken.type == TT::Else ||
+                    curToken.type == TT::End
+
+                if curToken.type == TT::EOF
+                    STDERR.puts "#{lineMsg curToken}Expected end after elf, \
+                        not EOF."
+                    exit FAIL
+                end
+                elfBody << statement env
+            end
+
+            elfBodies << {elfCondition, Block.new(elfBody)}
         end
 
         # else
@@ -150,7 +183,13 @@ class Parser
         # end
         @i += 1
 
-        If.new condition, Block.new(ifBody), Block.new(elseBody), line
+        If.new(
+            ifCondition,
+            Block.new(ifBody),
+            elfBodies,
+            Block.new(elseBody),
+            line
+        )
     end
 
     def whileLoop(env)
