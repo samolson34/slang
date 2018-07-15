@@ -7,7 +7,7 @@ def grade(int score)
         println 3
     elf score >= 60
         println 4
-else
+    else
         println 5
     end
 end
