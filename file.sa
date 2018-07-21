@@ -1,3 +1,8 @@
+#!/home/bassbash/git-repos/slang/slang
+println ARG0
+println ARG1
+println ARG2
+
 def no-arg
     println 0
 end

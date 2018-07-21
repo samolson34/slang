@@ -32,12 +32,9 @@ class Parser
         "Line #{expr.line} -> "
     end
 
-    def parse
+    # Environment necessary to maintain scope of variables
+    def parse(env : Environment)
         statements = [] of Statement
-
-        # Environment necessary to maintain scope of variables
-        env = Environment.new
-
         until curToken.type == TT::EOF
             statements << statement env
         end
