@@ -99,14 +99,16 @@ class Parser
             elsif env.functions.has_key? curToken.code
                 call env
             else
-                STDERR.puts "#{lineMsg curToken}Unexpected identifier: \
-                    #{curToken.code}"
-                exit FAIL
+                expression env
+                #STDERR.puts "#{lineMsg curToken}Unexpected identifier: \
+                    ##{curToken.code}"
+                #exit FAIL
             end
         else
-            STDERR.puts "#{lineMsg curToken}Unexpected token: \
-                #{curToken.code}"
-            exit FAIL
+            expression env
+            #STDERR.puts "#{lineMsg curToken}Unexpected token: \
+                ##{curToken.code}"
+            #exit FAIL
         end
     end
 
@@ -445,7 +447,7 @@ class Parser
             @i += 1
         end
 
-        Call.new id.code, actuals, id.line
+        VoidCall.new id.code, actuals, id.line
     end
 
     # Helper function

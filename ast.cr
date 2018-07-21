@@ -40,7 +40,7 @@ class Function
         ) end
     end
 
-    getter formals, body
+    getter formals, body, returnType
 
     def initialize(
         @formals : Array(Formal),
@@ -59,9 +59,13 @@ class Block
     def initialize(@statements : Array(Statement)) end
 
     def evaluate(env : Environment)
+        value = 0
         @statements.each do |statement|
-            statement.evaluate env
+            value = statement.evaluate env
         end
+
+        # The last statement in the block is the return value
+        value
     end
 end
 
@@ -104,6 +108,7 @@ class Assignment < Statement
                     @expression.evaluate env
                 )
         end
+        return
     end
 end
 
@@ -124,25 +129,30 @@ class If < Statement
             env.functions,
             env.level + 1
         )
-
         if @ifCondition.evaluate scope
-            @ifBody.evaluate scope
+            value = @ifBody.evaluate scope
         else
             # Loop allows for infinite elfs
             done = false
             i = 0
+            value = 0
             while !done && i < @elfBodies.size
+                # first is condition
                 done = @elfBodies[i].first.evaluate scope
                 if done
-                    @elfBodies[i].last.evaluate scope
+                    # last is body
+                    value = @elfBodies[i].last.evaluate scope
                 end
                 i += 1
             end
 
             if !done
-                @elseBody.evaluate scope
+                # All conditions are false, so evaluate else body. If no else,
+                # elseBody is empty and nothing happens.
+                value = @elseBody.evaluate scope
             end
         end
+        value
     end
 end
 
@@ -183,14 +193,20 @@ class Definition < Statement
         end
 
         env.functions[@name] = Function.new @formals, @body, @returnType
+        return
     end
 end
 
-class Call < Statement
+class VoidCall < Statement
     def initialize(@name : String, @actuals : Array(Expression), @line) end
 
     def evaluate(env)
         func = env.functions[@name]
+
+        unless func.returnType == Function::ReturnType::Void
+            STDERR.puts "VoidCall error"
+            exit 1
+        end
 
         # Function call can't see previous Environment's variables, but can
         # see all functions including itself
@@ -234,6 +250,39 @@ class IntegerVariable < IntegerExpression
         value
     end
 end
+
+#class IntegerCall < IntegerExpression
+    #def initialize(@name : String, @actuals : Array(Expression), @line) end
+
+    #def evaluate(env)
+        #func = env.functions[@name]
+
+        #unless func.returnType == Function::ReturnType::Integer
+            #STDERR.puts "IntegerCall error"
+            #exit 1
+        #end
+
+        ## Function call can't see previous Environment's variables, but can
+        ## see all functions including itself
+        #scope = Environment.new(
+            #{} of String => Variable,
+            #env.functions,
+            #env.level + 1
+        #)
+        #@actuals.each_with_index do |actual, i|
+            #if actual.is_a? IntegerExpression
+                #t = Variable::VariableType::Integer
+            #else
+                #t = Variable::VariableType::Boolean
+            #end
+
+            #name = func.formals[i].name
+            #scope.variables[name] = Variable.new t, actual.evaluate env
+        #end
+
+        #func.body.evaluate scope
+    #end
+#end
 
 class Integer < IntegerExpression
     def initialize(@value : Int32, @line) end
@@ -317,6 +366,39 @@ class BooleanVariable < BooleanExpression
         value
     end
 end
+
+#class BooleanCall < BooleanExpression
+    #def initialize(@name : String, @actuals : Array(Expression), @line) end
+
+    #def evaluate(env)
+        #func = env.functions[@name]
+
+        #unless func.returnType == Function::ReturnType::Boolean
+            #STDERR.puts "BooleanCall error"
+            #exit 1
+        #end
+
+        ## Function call can't see previous Environment's variables, but can
+        ## see all functions including itself
+        #scope = Environment.new(
+            #{} of String => Variable,
+            #env.functions,
+            #env.level + 1
+        #)
+        #@actuals.each_with_index do |actual, i|
+            #if actual.is_a? IntegerExpression
+                #t = Variable::VariableType::Integer
+            #else
+                #t = Variable::VariableType::Boolean
+            #end
+
+            #name = func.formals[i].name
+            #scope.variables[name] = Variable.new t, actual.evaluate env
+        #end
+
+        #func.body.evaluate scope
+    #end
+#end
 
 class Boolean < BooleanExpression
     def initialize(@value : Bool, @line) end

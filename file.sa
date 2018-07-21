@@ -6,7 +6,7 @@ def two-arg(int one, bool two)
     two |= false
     one += 1
     if two
-        println one
+        one
     end
 end
 
@@ -30,6 +30,8 @@ x = false
 println x
 x = -13
 println x
+
+6
 
 two-arg(x, x > 0)
 
