@@ -11,7 +11,6 @@ if ARGV.empty?
     exit FAIL
 else
     filename = ARGV[0]
-    args = ARGV[1..-1]
 
     unless File.file? filename
         STDERR.puts "Source file not found: #{filename}"
@@ -20,23 +19,35 @@ else
 
     file = File.open filename
 
+    argv = ARGV[1..-1]
+
     lexer = Lexer.new file
     tokens = lexer.lex
 
     parser = Parser.new tokens
 
     variables = {} of String => Variable
-    args.each_with_index do |arg, i|
+    variables["ARGC"] = Variable.new(
+        Variable::VariableType::Integer,
+        argv.size,
+        true
+    )
+
+    argv.each_with_index do |arg, i|
+        # Command line arguments must be digits, optionally negative, until
+        # support for strings
         if arg =~ /^-?\d+$/
             variables["ARG#{i}"] = Variable.new(
                 Variable::VariableType::Integer,
-                arg.to_i
+                arg.to_i,
+                true
             )
         else
             STDERR.puts "Invalid argument: #{arg}"
             exit FAIL
         end
     end
+
     program = parser.parse Environment.new variables
 
     program.evaluate Environment.new variables

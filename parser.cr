@@ -69,10 +69,20 @@ class Parser
             )
             whileLoop scope
         elsif curToken.type == TT::Define
-            # New scope for def so function definition can reuse existing
+            # Function call can see all global variables and all functions
+            # including itself, but cannot see previous Environment's nonglobal
             # variables
+
+            # Get global variables
+            variables = {} of String => Variable
+            env.variables.each do |variable|
+                if variable.last.global
+                    variables[variable.first] = variable.last
+                end
+            end
+
             scope = Environment.new(
-                {} of String => Variable,
+                variables,
                 env.functions,
                 env.level + 1
             )

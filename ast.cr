@@ -16,8 +16,13 @@ class Variable
     end
 
     property type, value
+    getter global
 
-    def initialize(@type : VariableType, @value : Int32 | Bool) end
+    def initialize(
+        @type : VariableType,
+        @value : Int32 | Bool,
+        @global = false
+    ) end
 end
 
 # This class is only used in Environment, not as a type of expression
@@ -208,13 +213,24 @@ class VoidCall < Statement
             exit 1
         end
 
-        # Function call can't see previous Environment's variables, but can
-        # see all functions including itself
+        # Function call can see all global variables and all functions
+        # including itself, but cannot see previous Environment's nonglobal
+        # variables
+
+        # Get global variables
+        variables = {} of String => Variable
+        env.variables.each do |variable|
+            if variable.last.global
+                variables[variable.first] = variable.last
+            end
+        end
+
         scope = Environment.new(
-            {} of String => Variable,
+            variables,
             env.functions,
             env.level + 1
         )
+        # Give formal parameters actual values
         @actuals.each_with_index do |actual, i|
             if actual.is_a? IntegerExpression
                 t = Variable::VariableType::Integer
