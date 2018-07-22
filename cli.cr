@@ -9,46 +9,45 @@ FAIL = 1
 if ARGV.empty?
     STDERR.puts "usage: slang <source file>"
     exit FAIL
-else
-    filename = ARGV[0]
+end
 
-    unless File.file? filename
-        STDERR.puts "Source file not found: #{filename}"
+filename = ARGV[0]
+argv = ARGV[1..-1]
+
+unless File.file? filename
+    STDERR.puts "Source file not found: #{filename}"
+    exit FAIL
+end
+
+file = File.open filename
+
+lexer = Lexer.new file
+tokens = lexer.lex
+
+parser = Parser.new tokens
+
+variables = {} of String => Variable
+variables["ARGC"] = Variable.new(
+    Variable::VariableType::Integer,
+    argv.size,
+    true  # global variable
+)
+
+# Get command line arguments
+argv.each_with_index do |arg, i|
+    # Arguments must be digits, optionally negative (until support for strings)
+    if arg =~ /^-?\d+$/
+        variables["ARG#{i}"] = Variable.new(
+            Variable::VariableType::Integer,
+            arg.to_i,
+            true  # global variable
+        )
+    else
+        STDERR.puts "Invalid argument: #{arg}"
         exit FAIL
     end
-
-    file = File.open filename
-
-    argv = ARGV[1..-1]
-
-    lexer = Lexer.new file
-    tokens = lexer.lex
-
-    parser = Parser.new tokens
-
-    variables = {} of String => Variable
-    variables["ARGC"] = Variable.new(
-        Variable::VariableType::Integer,
-        argv.size,
-        true
-    )
-
-    argv.each_with_index do |arg, i|
-        # Command line arguments must be digits, optionally negative, until
-        # support for strings
-        if arg =~ /^-?\d+$/
-            variables["ARG#{i}"] = Variable.new(
-                Variable::VariableType::Integer,
-                arg.to_i,
-                true
-            )
-        else
-            STDERR.puts "Invalid argument: #{arg}"
-            exit FAIL
-        end
-    end
-
-    program = parser.parse Environment.new variables
-
-    program.evaluate Environment.new variables
 end
+
+program = parser.parse Environment.new variables
+
+program.evaluate Environment.new variables
