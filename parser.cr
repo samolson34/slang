@@ -32,7 +32,8 @@ class Parser
         "Line #{expr.line} -> "
     end
 
-    # Environment necessary to maintain scope of variables
+    # Environment necessary to maintain scope of variables (and perhaps
+    # functions in the future)
     def parse(env : Environment)
         statements = [] of Statement
         until curToken.type == TT::EOF
@@ -70,8 +71,8 @@ class Parser
             whileLoop scope
         elsif curToken.type == TT::Define
             # Function call can see all global variables and all functions
-            # including itself, but cannot see previous Environment's nonglobal
-            # variables
+            # including itself, but cannot see previous Environment's
+            # nonglobal variables
 
             # Get global variables
             variables = {} of String => Variable
@@ -88,18 +89,19 @@ class Parser
             )
             define scope
         elsif curToken.type == TT::Identifier
-            if curToken(1).type == TT::Assign
+            operator = curToken(1)
+            if operator.type == TT::Assign
                 assign env
-            elsif curToken(1).type == TT::AssignMultiply ||
-                    curToken(1).type == TT::AssignDivide ||
-                    curToken(1).type == TT::AssignMod ||
-                    curToken(1).type == TT::AssignAdd ||
-                    curToken(1).type == TT::AssignSubtract
+            elsif operator.type == TT::AssignMultiply ||
+                    operator.type == TT::AssignDivide ||
+                    operator.type == TT::AssignMod ||
+                    operator.type == TT::AssignAdd ||
+                    operator.type == TT::AssignSubtract
 
                 # *= /= %/ += -=
                 arithmeticAssign env
-            elsif curToken(1).type == TT::AssignAnd ||
-                    curToken(1).type == TT::AssignOr
+            elsif operator.type == TT::AssignAnd ||
+                    operator.type == TT::AssignOr
 
                 # &= |=
                 logicalAssign env
@@ -454,7 +456,13 @@ class Parser
             @i += 1
         end
 
-        VoidCall.new id.code, actuals, id.line
+        if env.functions[id.code].returnType == RT::Integer
+            IntegerCall.new id.code, actuals, id.line
+        elsif env.functions[id.code].returnType == RT::Boolean
+            BooleanCall.new id.code, actuals, id.line
+        else
+            VoidCall.new id.code, actuals, id.line
+        end
     end
 
     # Helper function
@@ -703,6 +711,15 @@ class Parser
                 else
                     BooleanVariable.new id.code, id.line
                 end
+            elsif env.functions.has_key? id.code
+                value = call env
+
+                if value.is_a? VoidCall
+                    STDERR.puts "#{lineMsg id}Expected expression, not
+                        #{value}"
+                    exit FAIL
+                end
+                value
             else
                 STDERR.puts "#{lineMsg id}Uninitialized variable: #{id.code}"
                 exit FAIL

@@ -136,7 +136,7 @@ class If < Statement
         if @ifCondition.evaluate scope
             value = @ifBody.evaluate scope
         else
-            # Loop allows for infinite elfs
+            # Loop allows for infinite elfs, or 0
             done = false
             i = 0
             value = 0
@@ -246,6 +246,16 @@ class VoidCall < Statement
 end
 
 abstract class Expression < Statement end
+
+#class CallPlaceholder < Expression
+    #def evaluate(env, n = 0)
+        #if n > 0
+            #50
+        #else
+            #false
+        #end
+    #end
+#end
 
 abstract class IntegerExpression < Expression
     abstract def evaluate(env) : Int32
