@@ -1,0 +1,13 @@
+#!/home/bassbash/git-repos/slang/slang
+
+def fib(int n)
+    if n < 0
+        0 - 1
+    elf n == 0
+        0
+    elf n == 1
+        1
+    else
+        0 + fib(n - 1) + fib(n - 2)
+    end
+end

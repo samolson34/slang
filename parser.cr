@@ -15,11 +15,11 @@ class Parser
 
     def initialize(@tokens : Array(Token)) end
 
-    def curToken(bias = 0)
+    private def curToken(bias = 0)
         @tokens[@i + bias]
     end
 
-    def operatorRaise(operator, operand, expected, side="")
+    private def operatorRaise(operator, operand, expected, side="")
         side += ' ' unless side.empty?
 
         STDERR.puts "#{lineMsg operand}For #{operator.code} #{side}operand: \
@@ -28,7 +28,7 @@ class Parser
     end
 
     # For error messages
-    def lineMsg(expr)
+    private def lineMsg(expr)
         "Line #{expr.line} -> "
     end
 
@@ -43,7 +43,7 @@ class Parser
         Block.new statements
     end
 
-    def statement(env)
+    private def statement(env)
         if curToken.type == TT::Print
             line = curToken.line
             @i += 1
@@ -122,17 +122,20 @@ class Parser
     end
 
     # if
-    def conditional(env)
+    private def conditional(env)
         line = curToken.line
         @i += 1
 
         # Get if condition
         ifCondition = expression env
-        unless ifCondition.is_a? BooleanExpression
+        unless ifCondition.is_a? BooleanExpression ||
+                ifCondition.is_a? PlaceholderCall
+
             STDERR.puts "#{lineMsg ifCondition}Expected BooleanExpression, \
                 not #{ifCondition.class}."
             exit FAIL
         end
+        #ifCondition = ifCondition.as BooleanExpression
 
         ifBody = [] of Statement
         until curToken.type == TT::Elf ||
@@ -148,18 +151,21 @@ class Parser
         end
 
         # elf (else if)
-        elfBodies = [] of Tuple(BooleanExpression, Block)
+        elfBodies = [] of Tuple(BooleanExpression | PlaceholderCall, Block)
         while curToken.type == TT::Elf
             @i += 1
             j = elfBodies.size
 
             # Get condition
             elfCondition = expression env
-            unless elfCondition.is_a? BooleanExpression
+            unless elfCondition.is_a? BooleanExpression ||
+                    elfCondition.is_a? PlaceholderCall
+
                 STDERR.puts "#{lineMsg elfCondition}Expected \
                     BooleanExpression, not #{elfCondition.class}."
                 exit FAIL
             end
+            #elfCondition = elfCondition.as BooleanExpression
 
             elfBody = [] of Statement
             until curToken.type == TT::Elf ||
@@ -181,14 +187,7 @@ class Parser
         elseBody = [] of Statement
         if curToken.type == TT::Else
             @i += 1
-            until curToken.type == TT::End
-                if curToken.type == TT::EOF
-                    STDERR.puts "#{lineMsg curToken}Expected end after else, \
-                        not EOF."
-                    exit FAIL
-                end
-                elseBody << statement env
-            end
+            elseBody = getBody env, "else"
         end
 
         # end
@@ -203,27 +202,22 @@ class Parser
         )
     end
 
-    def whileLoop(env)
+    private def whileLoop(env)
         line = curToken.line
         @i += 1
 
         # Get condition
         condition = expression env
-        unless condition.is_a? BooleanExpression
+        unless condition.is_a? BooleanExpression ||
+                condition.is_a? PlaceholderCall
+
             STDERR.puts "#{lineMsg condition}Expected BooleanExpression, \
                 not #{condition.class}."
             exit FAIL
         end
+        #condition = condition.as BooleanExpression
 
-        body = [] of Statement
-        until curToken.type == TT::End
-            if curToken.type == TT::EOF
-                STDERR.puts "#{lineMsg curToken}Expected end after while, \
-                    not EOF."
-                exit FAIL
-            end
-            body << statement env
-        end
+        body = getBody env, "while"
 
         # end
         @i += 1
@@ -231,7 +225,7 @@ class Parser
         While.new condition, Block.new(body), line
     end
 
-    def define(env)
+    private def define(env)
         if env.level > 1
             STDERR.puts "#{lineMsg curToken}Must define function at global \
                 scope."
@@ -281,26 +275,31 @@ class Parser
         env.functions[name] = Function.new(
             formals,
             Block.new(body),
-            RT::Void
+            #RT::Void
+            RT::Placeholder
         )
+        checkpoint = @i
 
-        # Get statements
-        until curToken.type == TT::End
-            if curToken.type == TT::EOF
-                STDERR.puts "#{lineMsg curToken}Expected end after def, not \
-                    EOF."
-                exit FAIL
-            end
-            body << statement env
-        end
+        # Get statements, type checking turned off for calls to self
+        body = getBody env, "def"
 
+        # Go back
+        @i = checkpoint
+        #@i += 1
+
+        returnType = getReturnType body
+        env.functions[name].returnType = returnType
+
+        # Get statements again, type checking turned back on
+        body = getBody env, "def"
+
+        # end
         @i += 1
 
-        Definition.new name, formals, Block.new(body), RT::Void, line
+        Definition.new name, formals, Block.new(body), returnType, line
     end
 
     # Helper function
-    # Probably doesn't need to be private
     private def getFormal(env)
         # Get type
         if curToken.type == TT::Type
@@ -330,7 +329,103 @@ class Parser
         formal
     end
 
-    def assign(env)
+    # Helper function
+    private def getBody(env, source)
+        body = [] of Statement
+        until curToken.type == TT::End
+            if curToken.type == TT::EOF
+                STDERR.puts "#{lineMsg curToken}Expected end after \
+                    #{source}, not EOF."
+                exit FAIL
+            end
+            body << statement env
+        end
+        body
+    end
+
+    # Helper function
+    private def getReturnType(body)
+        if body.empty?
+            RT::Void
+        elsif body[-1].is_a? PlaceholderCall
+            RT::Placeholder
+        elsif body[-1].is_a? IntegerExpression
+            RT::Integer
+        elsif body[-1].is_a? BooleanExpression
+            RT::Boolean
+        elsif body[-1].is_a? If
+            # Cast because it's an Array of Statement
+            ifStatement = body[-1].as If
+
+            ifRT = getReturnType ifStatement.ifBody.statements
+
+            elfRTs = [] of RT
+            ifStatement.elfBodies.each do |elfBody|
+                elfRTs << getReturnType elfBody.last.statements
+            end
+
+            elseRT = getReturnType ifStatement.elseBody.statements
+
+            # Match gets whether return types are equal or one is Placeholder
+            match = ifRT.match elseRT
+            if match
+                # Check if elfRTs match too, until one doesn't match
+                i = 0
+                while match && i < elfRTs.size
+                    # Check both if and else in case one is Placeholder
+                    match &= elfRTs[i].match(ifRT) && elfRTs[i].match(elseRT)
+                    i += 1
+                end
+
+                if match
+                    # Don't return the Placeholder
+                    if ifRT != RT::Placeholder
+                        ifRT
+                    elsif elseRT != RT::Placeholder
+                        elseRT
+                    else
+                        # if and else bodies return Placeholders, so return
+                        # the first elf that is not a Placeholder
+                        value = RT::Placeholder
+                        i = 0
+                        while value == RT::Placeholder && i < elfRTs.size
+                            value = elfRTs[i]
+                        end
+
+                        # If they're all Placeholders, error
+                        if value == RT::Placeholder
+                            expr = ifStatement.elseBody.statements[-1]
+                            STDERR.puts "#{lineMsg expr}Cannot determine\
+                                return type"
+                            exit FAIL
+                        end
+
+                        value
+                    end
+                else
+                    expr = ifStatement.elfBodies[i - 1].last.statements[-1]
+                    STDERR.puts "#{lineMsg expr}Cannot determine return type"
+                    exit FAIL
+                end
+            else
+                if ifStatement.elseBody.statements.empty?
+                    # elseBody is empty because it's literally empty, or there
+                    # is no else (returns Void)
+                    expr = ifStatement.ifBody.statements[-1]
+                else
+                    # Else return type doesn't match
+                    expr = ifStatement.elseBody.statements[-1]
+                end
+
+                STDERR.puts "#{lineMsg expr}Cannot determine return type"
+                exit FAIL
+            end
+        else
+            RT::Void
+        end
+    end
+
+    private def assign(env)
         id = curToken
         @i += 1
 
@@ -340,7 +435,8 @@ class Parser
         # Right side of =
         r = expression env
 
-        if r.is_a? IntegerExpression
+        if r.is_a? IntegerExpression || r.is_a? PlaceholderCall
+            #r = r.as IntegerExpression
             type = VT::Integer
             value = 0
         elsif r.is_a? BooleanExpression
@@ -365,7 +461,7 @@ class Parser
         Assignment.new id.code, type, r, id.line
     end
 
-    def arithmeticAssign(env)
+    private def arithmeticAssign(env)
         # Let atom get variable because BinaryArithmetic takes in two
         # IntegerExpressions
         l = atom env
@@ -379,9 +475,10 @@ class Parser
 
         r = expression env
 
-        unless r.is_a? IntegerExpression
+        unless r.is_a? IntegerExpression || r.is_a? PlaceholderCall
             operatorRaise operator, r, IntegerExpression, "R"
         end
+        #r = r.as IntegerExpression
 
         type = VT::Integer
         if operator.type == TT::AssignMultiply
@@ -397,7 +494,7 @@ class Parser
         end
     end
 
-    def logicalAssign(env)
+    private def logicalAssign(env)
         l = atom env
 
         operator = curToken
@@ -409,9 +506,10 @@ class Parser
 
         r = expression env
 
-        unless r.is_a? BooleanExpression
+        unless r.is_a? BooleanExpression || r.is_a? PlaceholderCall
             operatorRaise operator, r, BooleanExpression, "R"
         end
+        #r = r.as BooleanExpression
 
         type = VT::Boolean
         if operator.type == TT::AssignAnd
@@ -422,7 +520,7 @@ class Parser
     end
 
     # Function call
-    def call(env)
+    private def call(env)
         id = curToken
         @i += 1
 
@@ -456,7 +554,9 @@ class Parser
             @i += 1
         end
 
-        if env.functions[id.code].returnType == RT::Integer
+        if env.functions[id.code].returnType == RT::Placeholder
+            PlaceholderCall.new
+        elsif env.functions[id.code].returnType == RT::Integer
             IntegerCall.new id.code, actuals, id.line
         elsif env.functions[id.code].returnType == RT::Boolean
             BooleanCall.new id.code, actuals, id.line
@@ -465,8 +565,6 @@ class Parser
         end
     end
 
-    # Helper function
-    # Probably doesn't need to be private
     private def getActuals(env, id)
         actuals = [] of Expression
 
@@ -478,9 +576,7 @@ class Parser
             arg = expression env
             type = env.functions[id.code].formals[actuals.size].type
 
-            if (arg.is_a? IntegerExpression && type.is_a? VT::Integer) ||
-                    (arg.is_a? BooleanExpression && type.is_a? VT::Boolean)
-
+            if (type.match arg)
                 actuals << arg
             else
                 STDERR.puts "#{lineMsg arg}Argument #{actuals.size + 1} \
@@ -513,53 +609,57 @@ class Parser
     end
 
     # Logic behind order of precedence starts here
-    def expression(env)
+    private def expression(env)
         logicalOr env
     end
 
-    def logicalOr(env)
+    private def logicalOr(env)
         a = logicalAnd env
         while curToken.type == TT::Or
             operator = curToken
             @i += 1
 
-            unless a.is_a? BooleanExpression
+            unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, BooleanExpression, "L"
             end
+            #a = a.as BooleanExpression
 
             b = logicalAnd env
 
-            unless b.is_a? BooleanExpression
+            unless b.is_a? BooleanExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, BooleanExpression, "R"
             end
+            #b = b.as BooleanExpression
 
             a = Or.new a, b, a.line
         end
         a
     end
 
-    def logicalAnd(env)
+    private def logicalAnd(env)
         a = relational env
         while curToken.type == TT::And
             operator = curToken
             @i += 1
 
-            unless a.is_a? BooleanExpression
+            unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, BooleanExpression, "L"
             end
+            #a = a.as BooleanExpression
 
             b = relational env
 
-            unless b.is_a? BooleanExpression
+            unless b.is_a? BooleanExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, BooleanExpression, "R"
             end
+            #b = b.as BooleanExpression
 
             a = And.new a, b, a.line
         end
         a
     end
 
-    def relational(env)
+    private def relational(env)
         a = comparison env
         while curToken.type == TT::Equal ||
                 curToken.type == TT::NotEqual
@@ -576,7 +676,7 @@ class Parser
         a
     end
 
-    def comparison(env)
+    private def comparison(env)
         a = additive env
         while curToken.type == TT::Greater ||
                 curToken.type == TT::GreaterOrEqual ||
@@ -586,15 +686,17 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression
+            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression, "L"
             end
+            #a = a.as IntegerExpression
 
             b = additive env
 
-            unless b.is_a? IntegerExpression
+            unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, IntegerExpression, "R"
             end
+            #b = b.as IntegerExpression
 
             if operator.type == TT::Greater
                 a = Greater.new a, b, a.line
@@ -609,7 +711,7 @@ class Parser
         a
     end
 
-    def additive(env)
+    private def additive(env)
         a = multiplicative env
         while curToken.type == TT::Plus ||
                 curToken.type == TT::Minus
@@ -617,15 +719,17 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression
+            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression, "L"
             end
+            #a = a.as IntegerExpression
 
             b = multiplicative env
 
-            unless b.is_a? IntegerExpression
+            unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, IntegerExpression, "R"
             end
+            #b = b.as IntegerExpression
 
             if operator.type == TT::Plus
                 a = Add.new a, b, a.line
@@ -636,7 +740,7 @@ class Parser
         a
     end
 
-    def multiplicative(env)
+    private def multiplicative(env)
         a = unary env
         while curToken.type == TT::Star ||
                 curToken.type == TT::Slash ||
@@ -645,15 +749,17 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression
+            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression, "L"
             end
+            #a = a.as IntegerExpression
 
             b = unary env
 
-            unless b.is_a? IntegerExpression
+            unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, IntegerExpression, "R"
             end
+            #b = b.as IntegerExpression
 
             if operator.type == TT::Star
                 a = Multiply.new a, b, a.line
@@ -666,15 +772,16 @@ class Parser
         a
     end
 
-    def unary(env)
+    private def unary(env)
         if curToken.type == TT::Minus
             operator = curToken
             @i += 1
             a = atom env
 
-            unless a.is_a? IntegerExpression
+            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression
             end
+            #a = a.as IntegerExpression
 
             Negate.new a, a.line
         elsif curToken.type == TT::Bang
@@ -682,9 +789,10 @@ class Parser
             @i += 1
             a = atom env
 
-            unless a.is_a? BooleanExpression
+            unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, BooleanExpression
             end
+            #a = a.as BooleanExpression
 
             Not.new a, a.line
         else
@@ -692,7 +800,7 @@ class Parser
         end
     end
 
-    def atom(env)
+    private def atom(env)
         if curToken.type == TT::Integer
             int = Integer.new curToken.code.to_i, curToken.line
             @i += 1
@@ -703,9 +811,9 @@ class Parser
             bool
         elsif curToken.type == TT::Identifier
             id = curToken
-            @i += 1
 
             if env.variables.has_key? id.code
+                @i += 1
                 if env.variables[id.code].type.is_a? VT::Integer
                     IntegerVariable.new id.code, id.line
                 else

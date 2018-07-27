@@ -1,26 +1,28 @@
 def double(int a)
-    println a * 2
+    a * 2
 end
 
 def recurse(int a)
     double(a)
     if a > 0
         recurse(a - 1)
+    else
+        a
     end
 end
 
 def equal?(int a, int b)
-    println a == b
+    a == b
 end
 
 def even?(int a)
-    println a % 2 == 0
+    a % 2 == 0
 end
 
 def loop(int a)
     while a > 0
         print a
-        even?(a)
+        println even?(a)
         a = a - 1
     end
 end
@@ -41,24 +43,24 @@ def prime?(int a)
         end
         i = i + 2
     end
-    println prime
+    prime
 end
 
 i = 1
     while i < 10
     println i
-    prime?(i)
+    println prime?(i)
     i = i + 1
 end
 
 a = 26052001
 println a
-prime?(a)
+#prime?(a)
 
 recurse(14)
 loop(11)
-equal?(4, 4)
-even?(5)
+println equal?(4, 4)
+println even?(5)
 
 b = false
 if !b

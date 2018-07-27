@@ -8,6 +8,8 @@ def two-arg(int one, bool two)
     one += 1
     if two
         one
+    else
+        0
     end
 end
 
@@ -23,7 +25,7 @@ def uncalled
 end
 
 no-arg
-two-arg(5 + 5 , true)
+println two-arg(5 + 5 , true)
 call-func
 empty-func
 
@@ -34,7 +36,7 @@ println x
 
 6
 
-two-arg(x, x > 0)
+println two-arg(x, x > 0)
 
 println(4 > 2 && 9 - -3 == 10)
 println(9 - -3 == 10 || 4 > 2)

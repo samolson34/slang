@@ -1,10 +1,10 @@
 def timeChange(int tempo, int numer, int denom)
-    println tempo * numer / denom
+    tempo * numer / denom
 end
 
-timeChange(100, 2, 3)
-timeChange(66, 3, 2)
-timeChange(100, 4, 3)
+println timeChange(100, 2, 3)
+println timeChange(66, 3, 2)
+println timeChange(100, 4, 3)
 
 # Com
 #    me

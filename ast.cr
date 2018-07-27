@@ -13,6 +13,12 @@ class Variable
     enum VariableType
         Boolean
         Integer
+
+        def match(expr : Expression)
+            expr.is_a? PlaceholderCall ||
+            (self == Boolean && expr.is_a? BooleanExpression) ||
+                (self == Integer && expr.is_a? IntegerExpression)
+        end
     end
 
     property type, value
@@ -23,6 +29,11 @@ class Variable
         @value : Int32 | Bool,
         @global = false
     ) end
+
+    # For deep copy in cli.cr
+    def clone
+        Variable.new @type, @value, @global
+    end
 end
 
 # This class is only used in Environment, not as a type of expression
@@ -31,6 +42,13 @@ class Function
         Boolean
         Integer
         Void
+        Placeholder
+
+        def match(other : ReturnType)
+            self == Placeholder ||
+                other == Placeholder ||
+                self == other
+        end
     end
 
     # Formals are the formal parameter variables:
@@ -45,7 +63,8 @@ class Function
         ) end
     end
 
-    getter formals, body, returnType
+    property returnType
+    getter formals, body
 
     def initialize(
         @formals : Array(Formal),
@@ -61,6 +80,8 @@ end
 # Block is Array of Statements. Used in If, While, Definition, Parser::define,
 # and to collect the entire program
 class Block
+    getter statements
+
     def initialize(@statements : Array(Statement)) end
 
     def evaluate(env : Environment)
@@ -107,20 +128,31 @@ class Assignment < Statement
             env.variables[@name].type = @type
             env.variables[@name].value = @expression.evaluate env
         else
-            env.variables[@name] =
-                Variable.new(
-                    @type,
-                    @expression.evaluate env
-                )
+            env.variables[@name] = Variable.new(
+                @type,
+                @expression.evaluate env
+            )
         end
     end
 end
 
 class If < Statement
+    getter ifBody, elfBodies, elseBody
+
     def initialize(
         @ifCondition : BooleanExpression,
         @ifBody : Block,
         @elfBodies : Array(Tuple(BooleanExpression, Block)),
+        @elseBody : Block,
+        @line
+    ) end
+
+    def initialize(
+        @ifCondition : BooleanExpression | PlaceholderCall,
+        @ifBody : Block,
+        @elfBodies : Array(
+            Tuple(BooleanExpression | PlaceholderCall, Block)
+        ),
         @elseBody : Block,
         @line
     ) end
@@ -166,6 +198,16 @@ class While < Statement
         @body : Block,
         @line
     ) end
+
+    def initialize(
+        @condition : BooleanExpression | PlaceholderCall,
+        @body : Block,
+        @line
+    )
+        unless @condition.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+        end
+    end
 
     def evaluate(env)
         # Scope same as if
@@ -247,15 +289,15 @@ end
 
 abstract class Expression < Statement end
 
-#class CallPlaceholder < Expression
-    #def evaluate(env, n = 0)
-        #if n > 0
-            #50
-        #else
-            #false
-        #end
-    #end
-#end
+class PlaceholderCall < Expression
+    def evaluate(env, n = 0)
+        if n > 0
+            50
+        else
+            false
+        end
+    end
+end
 
 abstract class IntegerExpression < Expression
     abstract def evaluate(env) : Int32
@@ -276,7 +318,7 @@ class IntegerVariable < IntegerExpression
     end
 end
 
-class IntegerCall < Expression
+class IntegerCall < IntegerExpression
     def initialize(@name : String, @actuals : Array(Expression), @line) end
 
     def evaluate(env)
@@ -331,57 +373,89 @@ end
 
 abstract class ArithmeticOperator < IntegerExpression
     def initialize(@a : IntegerExpression, @line) end
+
+    def initialize(@a : IntegerExpression | PlaceholderCall, @line)
+        unless @a.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 end
 
 abstract class UnaryArithmetic < ArithmeticOperator end
 
 class Negate < UnaryArithmetic
     def evaluate(env)
-        -@a.evaluate env
+        a = @a.evaluate(env).as Int32
+        -a
     end
 end
 
 abstract class BinaryArithmetic < ArithmeticOperator
     def initialize(@a : IntegerExpression, @b : IntegerExpression, @line) end
+
+    def initialize(
+        @a : IntegerExpression | PlaceholderCall,
+        @b : IntegerExpression | PlaceholderCall,
+        @line
+    )
+        unless @a.is_a? PlaceholderCall || @b.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 end
 
 class Multiply < BinaryArithmetic
     def evaluate(env)
-        @a.evaluate(env) * @b.evaluate(env)
+        a = @a.evaluate(env).as Int32
+        b = @b.evaluate(env).as Int32
+        a * b
+        #@a.evaluate(env) * @b.evaluate(env)
     end
 end
 
 class Divide < BinaryArithmetic
     def evaluate(env)
-        b = @b.evaluate env
+        a = @a.evaluate(env).as Int32
+        b = @b.evaluate(env).as Int32
+        #b = @b.evaluate env
         if b == 0
             STDERR.puts "Line #{@line} -> Division by zero not supported."
             exit 1
         end
-        @a.evaluate(env) / b
+        a / b
     end
 end
 
 class Mod < BinaryArithmetic
     def evaluate(env)
-        b = @b.evaluate env
+        a = @a.evaluate(env).as Int32
+        b = @b.evaluate(env).as Int32
+        #b = @b.evaluate env
         if b == 0
             STDERR.puts "Line #{@line} -> Modulus zero not supported."
             exit 1
         end
-        @a.evaluate(env) % b
+        a % b
     end
 end
 
 class Add < BinaryArithmetic
     def evaluate(env)
-        @a.evaluate(env) + @b.evaluate(env)
+        a = @a.evaluate(env).as Int32
+        b = @b.evaluate(env).as Int32
+        a + b
+        #@a.evaluate(env) + @b.evaluate(env)
     end
 end
 
 class Subtract < BinaryArithmetic
     def evaluate(env)
-        @a.evaluate(env) - @b.evaluate(env)
+        a = @a.evaluate(env).as Int32
+        b = @b.evaluate(env).as Int32
+        a - b
+        #@a.evaluate(env) - @b.evaluate(env)
     end
 end
 
@@ -460,6 +534,13 @@ end
 class Not < BooleanExpression
     def initialize(@a : BooleanExpression, @line) end
 
+    def initialize(@a : Expression | PlaceholderCall, @line)
+        unless @a.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
+
     def evaluate(env)
         !@a.evaluate env
     end
@@ -467,6 +548,17 @@ end
 
 abstract class RelationalOperator < BooleanExpression
     def initialize(@a : Expression, @b : Expression, @line) end
+
+    def initialize(
+        @a : Statement | PlaceholderCall,
+        @b : Statement | PlaceholderCall,
+        @line
+    )
+        unless @a.is_a? PlaceholderCall || @b.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 end
 
 class Equal < RelationalOperator
@@ -483,6 +575,17 @@ end
 
 abstract class ComparisonOperator < RelationalOperator
     def initialize(@a : IntegerExpression, @b : IntegerExpression, @line) end
+
+    def initialize(
+        @a : Expression | PlaceholderCall,
+        @b : Expression | PlaceholderCall,
+        @line
+    )
+        unless @a.is_a? PlaceholderCall || @b.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 end
 
 class Greater < ComparisonOperator
@@ -516,6 +619,17 @@ end
 
 abstract class LogicalOperator < BooleanExpression
     def initialize(@a : BooleanExpression, @b : BooleanExpression, @line) end
+
+    def initialize(
+        @a : Expression | PlaceholderCall,
+        @b : Expression | PlaceholderCall,
+        @line
+    )
+        unless @a.is_a? PlaceholderCall || @b.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 end
 
 class Or < LogicalOperator
