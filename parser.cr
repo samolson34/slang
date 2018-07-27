@@ -109,15 +109,9 @@ class Parser
                 call env
             else
                 expression env
-                #STDERR.puts "#{lineMsg curToken}Unexpected identifier: \
-                    ##{curToken.code}"
-                #exit FAIL
             end
         else
             expression env
-            #STDERR.puts "#{lineMsg curToken}Unexpected token: \
-                ##{curToken.code}"
-            #exit FAIL
         end
     end
 
@@ -135,7 +129,6 @@ class Parser
                 not #{ifCondition.class}."
             exit FAIL
         end
-        #ifCondition = ifCondition.as BooleanExpression
 
         ifBody = [] of Statement
         until curToken.type == TT::Elf ||
@@ -165,7 +158,6 @@ class Parser
                     BooleanExpression, not #{elfCondition.class}."
                 exit FAIL
             end
-            #elfCondition = elfCondition.as BooleanExpression
 
             elfBody = [] of Statement
             until curToken.type == TT::Elf ||
@@ -215,7 +207,6 @@ class Parser
                 not #{condition.class}."
             exit FAIL
         end
-        #condition = condition.as BooleanExpression
 
         body = getBody env, "while"
 
@@ -275,7 +266,6 @@ class Parser
         env.functions[name] = Function.new(
             formals,
             Block.new(body),
-            #RT::Void
             RT::Placeholder
         )
         checkpoint = @i
@@ -285,7 +275,6 @@ class Parser
 
         # Go back
         @i = checkpoint
-        #@i += 1
 
         returnType = getReturnType body
         env.functions[name].returnType = returnType
@@ -329,7 +318,6 @@ class Parser
         formal
     end
 
-    # Helper function
     private def getBody(env, source)
         body = [] of Statement
         until curToken.type == TT::End
@@ -343,7 +331,6 @@ class Parser
         body
     end
 
-    # Helper function
     private def getReturnType(body)
         if body.empty?
             RT::Void
@@ -436,7 +423,6 @@ class Parser
         r = expression env
 
         if r.is_a? IntegerExpression || r.is_a? PlaceholderCall
-            #r = r.as IntegerExpression
             type = VT::Integer
             value = 0
         elsif r.is_a? BooleanExpression
@@ -478,7 +464,6 @@ class Parser
         unless r.is_a? IntegerExpression || r.is_a? PlaceholderCall
             operatorRaise operator, r, IntegerExpression, "R"
         end
-        #r = r.as IntegerExpression
 
         type = VT::Integer
         if operator.type == TT::AssignMultiply
@@ -509,7 +494,6 @@ class Parser
         unless r.is_a? BooleanExpression || r.is_a? PlaceholderCall
             operatorRaise operator, r, BooleanExpression, "R"
         end
-        #r = r.as BooleanExpression
 
         type = VT::Boolean
         if operator.type == TT::AssignAnd
@@ -622,14 +606,12 @@ class Parser
             unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, BooleanExpression, "L"
             end
-            #a = a.as BooleanExpression
 
             b = logicalAnd env
 
             unless b.is_a? BooleanExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, BooleanExpression, "R"
             end
-            #b = b.as BooleanExpression
 
             a = Or.new a, b, a.line
         end
@@ -645,14 +627,12 @@ class Parser
             unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, BooleanExpression, "L"
             end
-            #a = a.as BooleanExpression
 
             b = relational env
 
             unless b.is_a? BooleanExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, BooleanExpression, "R"
             end
-            #b = b.as BooleanExpression
 
             a = And.new a, b, a.line
         end
@@ -689,14 +669,12 @@ class Parser
             unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression, "L"
             end
-            #a = a.as IntegerExpression
 
             b = additive env
 
             unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, IntegerExpression, "R"
             end
-            #b = b.as IntegerExpression
 
             if operator.type == TT::Greater
                 a = Greater.new a, b, a.line
@@ -722,14 +700,12 @@ class Parser
             unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression, "L"
             end
-            #a = a.as IntegerExpression
 
             b = multiplicative env
 
             unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, IntegerExpression, "R"
             end
-            #b = b.as IntegerExpression
 
             if operator.type == TT::Plus
                 a = Add.new a, b, a.line
@@ -752,14 +728,12 @@ class Parser
             unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression, "L"
             end
-            #a = a.as IntegerExpression
 
             b = unary env
 
             unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
                 operatorRaise operator, b, IntegerExpression, "R"
             end
-            #b = b.as IntegerExpression
 
             if operator.type == TT::Star
                 a = Multiply.new a, b, a.line
@@ -781,7 +755,6 @@ class Parser
             unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, IntegerExpression
             end
-            #a = a.as IntegerExpression
 
             Negate.new a, a.line
         elsif curToken.type == TT::Bang
@@ -792,7 +765,6 @@ class Parser
             unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
                 operatorRaise operator, a, BooleanExpression
             end
-            #a = a.as BooleanExpression
 
             Not.new a, a.line
         else

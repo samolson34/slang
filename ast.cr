@@ -411,7 +411,6 @@ class Multiply < BinaryArithmetic
         a = @a.evaluate(env).as Int32
         b = @b.evaluate(env).as Int32
         a * b
-        #@a.evaluate(env) * @b.evaluate(env)
     end
 end
 
@@ -419,7 +418,7 @@ class Divide < BinaryArithmetic
     def evaluate(env)
         a = @a.evaluate(env).as Int32
         b = @b.evaluate(env).as Int32
-        #b = @b.evaluate env
+
         if b == 0
             STDERR.puts "Line #{@line} -> Division by zero not supported."
             exit 1
@@ -432,7 +431,7 @@ class Mod < BinaryArithmetic
     def evaluate(env)
         a = @a.evaluate(env).as Int32
         b = @b.evaluate(env).as Int32
-        #b = @b.evaluate env
+
         if b == 0
             STDERR.puts "Line #{@line} -> Modulus zero not supported."
             exit 1
@@ -446,7 +445,6 @@ class Add < BinaryArithmetic
         a = @a.evaluate(env).as Int32
         b = @b.evaluate(env).as Int32
         a + b
-        #@a.evaluate(env) + @b.evaluate(env)
     end
 end
 
@@ -455,7 +453,6 @@ class Subtract < BinaryArithmetic
         a = @a.evaluate(env).as Int32
         b = @b.evaluate(env).as Int32
         a - b
-        #@a.evaluate(env) - @b.evaluate(env)
     end
 end
 
