@@ -8,6 +8,8 @@ def fib(int n)
     elf n == 1
         1
     else
-        0 + fib(n - 1) + fib(n - 2)
+        fib(n - 1) + fib(n - 2)
     end
 end
+
+println fib(10)

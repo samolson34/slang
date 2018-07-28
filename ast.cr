@@ -111,7 +111,7 @@ end
 
 class Println < Print
     def evaluate(env)
-        puts @message.evaluate env
+        p @message.evaluate env
     end
 end
 

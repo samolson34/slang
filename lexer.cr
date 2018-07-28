@@ -75,22 +75,22 @@ class Lexer
         @src = file.gets_to_end.chomp
     end
 
-    def take
+    private def take
         @token += curChar
         @i += 1
     end
 
-    def append(type)
+    private def append(type)
         @tokens << Token.new type, @token, @line
         @token = ""
     end
 
-    def curChar
+    private def curChar
         @src[@i]
     end
 
     # For error messages
-    def lineMsg
+    private def lineMsg
         "Line #{@line} -> "
     end
 

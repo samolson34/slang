@@ -19,7 +19,7 @@ class Parser
         @tokens[@i + bias]
     end
 
-    private def operatorRaise(operator, operand, expected, side="")
+    private def operatorError(operator, operand, expected, side="")
         side += ' ' unless side.empty?
 
         STDERR.puts "#{lineMsg operand}For #{operator.code} #{side}operand: \
@@ -89,6 +89,7 @@ class Parser
             )
             define scope
         elsif curToken.type == TT::Identifier
+            # Get operator, though it might not actually be an operator
             operator = curToken(1)
             if operator.type == TT::Assign
                 assign env
@@ -105,9 +106,13 @@ class Parser
 
                 # &= |=
                 logicalAssign env
-            elsif env.functions.has_key? curToken.code
+            elsif env.functions.has_key?(curToken.code) &&
+                    env.functions[curToken.code].returnType == RT::Void
+
                 call env
             else
+                # Function which returns non-Void is handled here, in case it
+                # is part of a larger expression
                 expression env
             end
         else
@@ -122,9 +127,7 @@ class Parser
 
         # Get if condition
         ifCondition = expression env
-        unless ifCondition.is_a? BooleanExpression ||
-                ifCondition.is_a? PlaceholderCall
-
+        unless ifCondition.is_a? BooleanExpression | PlaceholderCall
             STDERR.puts "#{lineMsg ifCondition}Expected BooleanExpression, \
                 not #{ifCondition.class}."
             exit FAIL
@@ -151,9 +154,7 @@ class Parser
 
             # Get condition
             elfCondition = expression env
-            unless elfCondition.is_a? BooleanExpression ||
-                    elfCondition.is_a? PlaceholderCall
-
+            unless elfCondition.is_a? BooleanExpression | PlaceholderCall
                 STDERR.puts "#{lineMsg elfCondition}Expected \
                     BooleanExpression, not #{elfCondition.class}."
                 exit FAIL
@@ -200,9 +201,7 @@ class Parser
 
         # Get condition
         condition = expression env
-        unless condition.is_a? BooleanExpression ||
-                condition.is_a? PlaceholderCall
-
+        unless condition.is_a? BooleanExpression | PlaceholderCall
             STDERR.puts "#{lineMsg condition}Expected BooleanExpression, \
                 not #{condition.class}."
             exit FAIL
@@ -422,7 +421,7 @@ class Parser
         # Right side of =
         r = expression env
 
-        if r.is_a? IntegerExpression || r.is_a? PlaceholderCall
+        if r.is_a? IntegerExpression | PlaceholderCall
             type = VT::Integer
             value = 0
         elsif r.is_a? BooleanExpression
@@ -456,13 +455,13 @@ class Parser
         @i += 1
 
         unless l.is_a? IntegerVariable
-            operatorRaise operator, l, IntegerVariable, "L"
+            operatorError operator, l, IntegerVariable, "L"
         end
 
         r = expression env
 
-        unless r.is_a? IntegerExpression || r.is_a? PlaceholderCall
-            operatorRaise operator, r, IntegerExpression, "R"
+        unless r.is_a? IntegerExpression | PlaceholderCall
+            operatorError operator, r, IntegerExpression, "R"
         end
 
         type = VT::Integer
@@ -486,13 +485,13 @@ class Parser
         @i += 1
 
         unless l.is_a? BooleanVariable
-            operatorRaise operator, l, BooleanVariable, "L"
+            operatorError operator, l, BooleanVariable, "L"
         end
 
         r = expression env
 
-        unless r.is_a? BooleanExpression || r.is_a? PlaceholderCall
-            operatorRaise operator, r, BooleanExpression, "R"
+        unless r.is_a? BooleanExpression | PlaceholderCall
+            operatorError operator, r, BooleanExpression, "R"
         end
 
         type = VT::Boolean
@@ -603,14 +602,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, BooleanExpression, "L"
+            unless a.is_a? BooleanExpression | PlaceholderCall
+                operatorError operator, a, BooleanExpression, "L"
             end
 
             b = logicalAnd env
 
-            unless b.is_a? BooleanExpression || b.is_a? PlaceholderCall
-                operatorRaise operator, b, BooleanExpression, "R"
+            unless b.is_a? BooleanExpression | PlaceholderCall
+                operatorError operator, b, BooleanExpression, "R"
             end
 
             a = Or.new a, b, a.line
@@ -624,14 +623,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, BooleanExpression, "L"
+            unless a.is_a? BooleanExpression | PlaceholderCall
+                operatorError operator, a, BooleanExpression, "L"
             end
 
             b = relational env
 
-            unless b.is_a? BooleanExpression || b.is_a? PlaceholderCall
-                operatorRaise operator, b, BooleanExpression, "R"
+            unless b.is_a? BooleanExpression | PlaceholderCall
+                operatorError operator, b, BooleanExpression, "R"
             end
 
             a = And.new a, b, a.line
@@ -666,14 +665,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, IntegerExpression, "L"
+            unless a.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, a, IntegerExpression, "L"
             end
 
             b = additive env
 
-            unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
-                operatorRaise operator, b, IntegerExpression, "R"
+            unless b.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, b, IntegerExpression, "R"
             end
 
             if operator.type == TT::Greater
@@ -697,14 +696,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, IntegerExpression, "L"
+            unless a.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, a, IntegerExpression, "L"
             end
 
             b = multiplicative env
 
-            unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
-                operatorRaise operator, b, IntegerExpression, "R"
+            unless b.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, b, IntegerExpression, "R"
             end
 
             if operator.type == TT::Plus
@@ -725,14 +724,14 @@ class Parser
             operator = curToken
             @i += 1
 
-            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, IntegerExpression, "L"
+            unless a.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, a, IntegerExpression, "L"
             end
 
             b = unary env
 
-            unless b.is_a? IntegerExpression || b.is_a? PlaceholderCall
-                operatorRaise operator, b, IntegerExpression, "R"
+            unless b.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, b, IntegerExpression, "R"
             end
 
             if operator.type == TT::Star
@@ -752,8 +751,8 @@ class Parser
             @i += 1
             a = atom env
 
-            unless a.is_a? IntegerExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, IntegerExpression
+            unless a.is_a? IntegerExpression | PlaceholderCall
+                operatorError operator, a, IntegerExpression
             end
 
             Negate.new a, a.line
@@ -762,8 +761,8 @@ class Parser
             @i += 1
             a = atom env
 
-            unless a.is_a? BooleanExpression || a.is_a? PlaceholderCall
-                operatorRaise operator, a, BooleanExpression
+            unless a.is_a? BooleanExpression | PlaceholderCall
+                operatorError operator, a, BooleanExpression
             end
 
             Not.new a, a.line
@@ -795,8 +794,8 @@ class Parser
                 value = call env
 
                 if value.is_a? VoidCall
-                    STDERR.puts "#{lineMsg id}Expected expression, not
-                        #{value}"
+                    STDERR.puts "#{lineMsg id}Expected expression, not \
+                        #{value.class}"
                     exit FAIL
                 end
                 value
