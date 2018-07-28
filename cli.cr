@@ -35,7 +35,6 @@ variables["ARGC"] = Variable.new(
 
 # Get command line arguments
 argv.each_with_index do |arg, i|
-
     # Arguments must be digits, optionally negative (until support for
     # strings)
     if arg =~ /^-?\d+$/

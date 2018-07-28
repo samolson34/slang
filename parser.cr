@@ -70,6 +70,13 @@ class Parser
             )
             whileLoop scope
         elsif curToken.type == TT::Define
+            # Stop if nested in if/while/def etc
+            if env.level > 0
+                STDERR.puts "#{lineMsg curToken}Must define function at \
+                    global scope."
+                exit FAIL
+            end
+
             # Function call can see all global variables and all functions
             # including itself, but cannot see previous Environment's
             # nonglobal variables
@@ -193,12 +200,6 @@ class Parser
     end
 
     private def define(env)
-        if env.level > 1
-            STDERR.puts "#{lineMsg curToken}Must define function at global \
-                scope."
-            exit FAIL
-        end
-
         line = curToken.line
         @i += 1
 
@@ -235,13 +236,14 @@ class Parser
             @i += 1
         end
 
-        # Add function to environment. Body not necessary, because parser only
+        # Add function to environment. Body not necessary because parser only
         # checks whether function exists.
-        # This may change with updates to return types.
         body = [] of Statement
         env.functions[name] = Function.new(
             formals,
             Block.new(body),
+
+            # Placeholder function bypasses all type checks
             RT::Placeholder
         )
         checkpoint = @i
@@ -255,7 +257,8 @@ class Parser
         returnType = getReturnType body
         env.functions[name].returnType = returnType
 
-        # Get statements again, type checking turned back on
+        # Get statements again, type checking turned back on since returnType
+        # of self is known
         body = getBody env, "def"
 
         # end
@@ -264,7 +267,7 @@ class Parser
         Definition.new name, formals, Block.new(body), returnType, line
     end
 
-    # Helper function
+    # Called by define
     private def getFormal(env)
         # Get type
         if curToken.type == TT::Type
@@ -294,6 +297,7 @@ class Parser
         formal
     end
 
+    # Called by conditional, whileLoop, define
     private def getBody(env, source, boundaries = [TT::End])
         body = [] of Statement
         until boundaries.includes? curToken.type
@@ -307,6 +311,10 @@ class Parser
         body
     end
 
+    # Called by define
+    # Return type is type of last statement. If last statement is if, all
+    # bodies must match return type, else error. Call to self is
+    # PlaceholderCall and matches any return type.
     private def getReturnType(body)
         if body.empty?
             RT::Void
@@ -329,7 +337,8 @@ class Parser
 
             elseRT = getReturnType ifStatement.elseBody.statements
 
-            # Match gets whether return types are equal or one is Placeholder
+            # RT::match returns whether return types are equal or one is
+            # Placeholder
             match = ifRT.match elseRT
             if match
                 # Check if elfRTs match too, until one doesn't match
