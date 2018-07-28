@@ -133,18 +133,7 @@ class Parser
             exit FAIL
         end
 
-        ifBody = [] of Statement
-        until curToken.type == TT::Elf ||
-                curToken.type == TT::Else ||
-                curToken.type == TT::End
-
-            if curToken.type == TT::EOF
-                STDERR.puts "#{lineMsg curToken}Expected end after if, not \
-                    EOF."
-                exit FAIL
-            end
-            ifBody << statement env
-        end
+        ifBody = getBody env, "if", [TT::Elf, TT::Else, TT::End]
 
         # elf (else if)
         elfBodies = [] of Tuple(BooleanExpression | PlaceholderCall, Block)
@@ -160,19 +149,7 @@ class Parser
                 exit FAIL
             end
 
-            elfBody = [] of Statement
-            until curToken.type == TT::Elf ||
-                    curToken.type == TT::Else ||
-                    curToken.type == TT::End
-
-                if curToken.type == TT::EOF
-                    STDERR.puts "#{lineMsg curToken}Expected end after elf, \
-                        not EOF."
-                    exit FAIL
-                end
-                elfBody << statement env
-            end
-
+            elfBody = getBody env, "elf", [TT::Elf, TT::Else, TT::End]
             elfBodies << {elfCondition, Block.new(elfBody)}
         end
 
@@ -317,9 +294,9 @@ class Parser
         formal
     end
 
-    private def getBody(env, source)
+    private def getBody(env, source, boundaries = [TT::End])
         body = [] of Statement
-        until curToken.type == TT::End
+        until boundaries.includes? curToken.type
             if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg curToken}Expected end after \
                     #{source}, not EOF."
