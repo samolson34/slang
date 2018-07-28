@@ -126,9 +126,11 @@ class Assignment < Statement
 
     def evaluate(env)
         if env.variables.has_key? @id
+            # Reusing key so changes apply to parent Environments
             env.variables[@id].type = @type
             env.variables[@id].value = @expression.evaluate env
         else
+            # New variable
             env.variables[@id] = Variable.new(
                 @type,
                 @expression.evaluate env
@@ -288,8 +290,16 @@ class VoidCall < Statement
     end
 end
 
+# Expression returns non-Void
 abstract class Expression < Statement end
 
+# PlaceholderCall is used in first parse of function definition in order to
+# determine function return type. It satisfies all type checks. During first 
+# parse while self's return type is unknown, calls to self are marked with 
+# PlaceholderCall so parsing can bypass type checks. Following this parse, the
+# function's return type is known, and the definition is parsed a second time,
+# this time checking the types to ensure calls to self satisfy operators,
+# function calls etc.
 class PlaceholderCall < Expression
     def evaluate(env, n = 0)
         if n > 0
@@ -319,6 +329,7 @@ class IntegerVariable < IntegerExpression
     end
 end
 
+# Function call which returns Integer
 class IntegerCall < IntegerExpression
     def initialize(@id : String, @actuals : Array(Expression), @line) end
 
@@ -364,6 +375,7 @@ class IntegerCall < IntegerExpression
     end
 end
 
+# Integer literal
 class Integer < IntegerExpression
     def initialize(@value : Int32, @line) end
 
@@ -372,9 +384,11 @@ class Integer < IntegerExpression
     end
 end
 
+# Operator which takes one or more Integers
 abstract class ArithmeticOperator < IntegerExpression
     def initialize(@a : IntegerExpression, @line) end
 
+    # Constructor to satisfy PlaceholderCall. Should never be evaluated
     def initialize(@a : IntegerExpression | PlaceholderCall, @line)
         unless @a.is_a? PlaceholderCall
             STDERR.puts "Line #{@line} -> Placeholder error"
@@ -387,6 +401,8 @@ abstract class UnaryArithmetic < ArithmeticOperator end
 
 class Negate < UnaryArithmetic
     def evaluate(env)
+        # Cast to satisfy (impossible) possibility of PlaceholderCall. Many
+        # similar casts to follow
         a = @a.evaluate(env).as Int32
         -a
     end
@@ -476,6 +492,7 @@ class BooleanVariable < BooleanExpression
     end
 end
 
+# Function call which returns Boolean
 class BooleanCall < BooleanExpression
     def initialize(@id : String, @actuals : Array(Expression), @line) end
 
@@ -521,6 +538,7 @@ class BooleanCall < BooleanExpression
     end
 end
 
+# Boolean literal
 class Boolean < BooleanExpression
     def initialize(@value : Bool, @line) end
 
@@ -588,29 +606,24 @@ end
 
 class Greater < ComparisonOperator
     def evaluate(env)
-        # No clue why crystal doesn't realize they already are Int32s
-        #@a.evaluate(env) > @b.evaluate(env)
         @a.evaluate(env).as(Int32) > @b.evaluate(env).as(Int32)
     end
 end
 
 class GreaterOrEqual < ComparisonOperator
     def evaluate(env)
-        #@a.evaluate(env) >= @b.evaluate(env)
         @a.evaluate(env).as(Int32) >= @b.evaluate(env).as(Int32)
     end
 end
 
 class Less < ComparisonOperator
     def evaluate(env)
-        #@a.evaluate(env) < @b.evaluate(env)
         @a.evaluate(env).as(Int32) < @b.evaluate(env).as(Int32)
     end
 end
 
 class LessOrEqual < ComparisonOperator
     def evaluate(env)
-        #@a.evaluate(env) <= @b.evaluate(env)
         @a.evaluate(env).as(Int32) <= @b.evaluate(env).as(Int32)
     end
 end
