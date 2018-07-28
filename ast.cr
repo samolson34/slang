@@ -55,10 +55,10 @@ class Function
     # def function(int formal1, bool formal2) end
     # Used in Definition and Parser::define
     class Formal
-        getter name, type
+        getter id, type
 
         def initialize(
-            @name : String,
+            @id : String,
             @type : Variable::VariableType
         ) end
     end
@@ -95,6 +95,7 @@ class Block
     end
 end
 
+# Statement may return Void
 abstract class Statement
     getter line = 0
 
@@ -117,18 +118,18 @@ end
 
 class Assignment < Statement
     def initialize(
-        @name : String,
+        @id : String,
         @type : Variable::VariableType,
         @expression : Expression,
         @line
     ) end
 
     def evaluate(env)
-        if env.variables.has_key? @name
-            env.variables[@name].type = @type
-            env.variables[@name].value = @expression.evaluate env
+        if env.variables.has_key? @id
+            env.variables[@id].type = @type
+            env.variables[@id].value = @expression.evaluate env
         else
-            env.variables[@name] = Variable.new(
+            env.variables[@id] = Variable.new(
                 @type,
                 @expression.evaluate env
             )
@@ -224,7 +225,7 @@ end
 
 class Definition < Statement
     def initialize(
-        @name : String,
+        @id : String,
         @formals : Array(Function::Formal),
         @body : Block,
         @returnType : Function::ReturnType,
@@ -238,16 +239,16 @@ class Definition < Statement
             exit 1
         end
 
-        env.functions[@name] = Function.new @formals, @body, @returnType
+        env.functions[@id] = Function.new @formals, @body, @returnType
     end
 end
 
 # Function call which returns void
 class VoidCall < Statement
-    def initialize(@name : String, @actuals : Array(Expression), @line) end
+    def initialize(@id : String, @actuals : Array(Expression), @line) end
 
     def evaluate(env)
-        func = env.functions[@name]
+        func = env.functions[@id]
 
         unless func.returnType == Function::ReturnType::Void
             STDERR.puts "VoidCall error"
@@ -279,8 +280,8 @@ class VoidCall < Statement
                 t = Variable::VariableType::Boolean
             end
 
-            name = func.formals[i].name
-            scope.variables[name] = Variable.new t, actual.evaluate env
+            id = func.formals[i].id
+            scope.variables[id] = Variable.new t, actual.evaluate env
         end
 
         func.body.evaluate scope
@@ -304,12 +305,12 @@ abstract class IntegerExpression < Expression
 end
 
 class IntegerVariable < IntegerExpression
-    getter name
+    getter id
 
-    def initialize(@name : String, @line) end
+    def initialize(@id : String, @line) end
 
     def evaluate(env)
-        value = env.variables[@name].value
+        value = env.variables[@id].value
         unless value.is_a? Int32
             STDERR.puts "Line #{@line} -> Integer variable error."
             exit 1
@@ -319,10 +320,10 @@ class IntegerVariable < IntegerExpression
 end
 
 class IntegerCall < IntegerExpression
-    def initialize(@name : String, @actuals : Array(Expression), @line) end
+    def initialize(@id : String, @actuals : Array(Expression), @line) end
 
     def evaluate(env)
-        func = env.functions[@name]
+        func = env.functions[@id]
 
         unless func.returnType == Function::ReturnType::Integer
             STDERR.puts "IntegerCall error"
@@ -349,13 +350,13 @@ class IntegerCall < IntegerExpression
                 t = Variable::VariableType::Boolean
             end
 
-            name = func.formals[i].name
-            scope.variables[name] = Variable.new t, actual.evaluate env
+            id = func.formals[i].id
+            scope.variables[id] = Variable.new t, actual.evaluate env
         end
 
         value = func.body.evaluate scope
         unless value.is_a? Int32
-            STDERR.puts "IntegerCall return error: #{@name}"
+            STDERR.puts "IntegerCall return error: #{@id}"
             exit 1
         end
 
@@ -461,12 +462,12 @@ abstract class BooleanExpression < Expression
 end
 
 class BooleanVariable < BooleanExpression
-    getter name
+    getter id
 
-    def initialize(@name : String, @line) end
+    def initialize(@id : String, @line) end
 
     def evaluate(env)
-        value = env.variables[@name].value
+        value = env.variables[@id].value
         unless value.is_a? Bool
             STDERR.puts "Line #{@line} -> Boolean variable error."
             exit 1
@@ -476,10 +477,10 @@ class BooleanVariable < BooleanExpression
 end
 
 class BooleanCall < BooleanExpression
-    def initialize(@name : String, @actuals : Array(Expression), @line) end
+    def initialize(@id : String, @actuals : Array(Expression), @line) end
 
     def evaluate(env)
-        func = env.functions[@name]
+        func = env.functions[@id]
 
         unless func.returnType == Function::ReturnType::Boolean
             STDERR.puts "BooleanCall error"
@@ -506,13 +507,13 @@ class BooleanCall < BooleanExpression
                 t = Variable::VariableType::Boolean
             end
 
-            name = func.formals[i].name
-            scope.variables[name] = Variable.new t, actual.evaluate env
+            id = func.formals[i].id
+            scope.variables[id] = Variable.new t, actual.evaluate env
         end
 
         value = func.body.evaluate scope
         unless value.is_a? Bool
-            STDERR.puts "BooleanCall return error: #{@name}"
+            STDERR.puts "BooleanCall return error: #{@id}"
             exit 1
         end
 

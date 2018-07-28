@@ -209,7 +209,7 @@ class Parser
             exit FAIL
         end
 
-        name = curToken.code
+        id = curToken.code
         @i += 1
 
         # Formals are the formal parameter variables:
@@ -239,7 +239,7 @@ class Parser
         # Add function to environment. Body not necessary because parser only
         # checks whether function exists.
         body = [] of Statement
-        env.functions[name] = Function.new(
+        env.functions[id] = Function.new(
             formals,
             Block.new(body),
 
@@ -254,8 +254,8 @@ class Parser
         # Go back
         @i = checkpoint
 
-        returnType = getReturnType body
-        env.functions[name].returnType = returnType
+        returnType = getReturnType body, id
+        env.functions[id].returnType = returnType
 
         # Get statements again, type checking turned back on since returnType
         # of self is known
@@ -264,7 +264,7 @@ class Parser
         # end
         @i += 1
 
-        Definition.new name, formals, Block.new(body), returnType, line
+        Definition.new id, formals, Block.new(body), returnType, line
     end
 
     # Called by define
@@ -283,7 +283,7 @@ class Parser
             exit FAIL
         end
 
-        # Get name
+        # Get id
         if curToken.type == TT::Identifier
             formal = Function::Formal.new curToken.code, v.type
             env.variables[curToken.code] = v
@@ -315,7 +315,7 @@ class Parser
     # Return type is type of last statement. If last statement is if, all
     # bodies must match return type, else error. Call to self is
     # PlaceholderCall and matches any return type.
-    private def getReturnType(body)
+    private def getReturnType(body, id)
         if body.empty?
             RT::Void
         elsif body[-1].is_a? PlaceholderCall
@@ -328,14 +328,14 @@ class Parser
             # Cast because it's an Array of Statement
             ifStatement = body[-1].as If
 
-            ifRT = getReturnType ifStatement.ifBody.statements
+            ifRT = getReturnType ifStatement.ifBody.statements, id
 
             elfRTs = [] of RT
             ifStatement.elfBodies.each do |elfBody|
-                elfRTs << getReturnType elfBody.last.statements
+                elfRTs << getReturnType elfBody.last.statements, id
             end
 
-            elseRT = getReturnType ifStatement.elseBody.statements
+            elseRT = getReturnType ifStatement.elseBody.statements, id
 
             # RT::match returns whether return types are equal or one is
             # Placeholder
@@ -368,7 +368,7 @@ class Parser
                         if value == RT::Placeholder
                             expr = ifStatement.elseBody.statements[-1]
                             STDERR.puts "#{lineMsg expr}Cannot determine\
-                                return type"
+                                return type of function #{id}"
                             exit FAIL
                         end
 
@@ -376,7 +376,8 @@ class Parser
                     end
                 else
                     expr = ifStatement.elfBodies[i - 1].last.statements[-1]
-                    STDERR.puts "#{lineMsg expr}Cannot determine return type"
+                    STDERR.puts "#{lineMsg expr}Cannot determine return type \
+                        of function #{id}"
                     exit FAIL
                 end
             else
@@ -389,7 +390,8 @@ class Parser
                     expr = ifStatement.elseBody.statements[-1]
                 end
 
-                STDERR.puts "#{lineMsg expr}Cannot determine return type"
+                STDERR.puts "#{lineMsg expr}Cannot determine return type of \
+                    function #{id}"
                 exit FAIL
             end
         else
@@ -463,7 +465,7 @@ class Parser
             r = Subtract.new l, r, l.line
         end
 
-        Assignment.new l.name, type, r, l.line
+        Assignment.new l.id, type, r, l.line
     end
 
     private def logicalAssign(env)
@@ -489,7 +491,7 @@ class Parser
             r = Or.new l, r, l.line
         end
 
-        Assignment.new l.name, type, And.new(l, r, l.line), l.line
+        Assignment.new l.id, type, And.new(l, r, l.line), l.line
     end
 
     # Function call
@@ -775,6 +777,7 @@ class Parser
             id = curToken
 
             if env.variables.has_key? id.code
+                # Use of variable value
                 @i += 1
                 if env.variables[id.code].type.is_a? VT::Integer
                     IntegerVariable.new id.code, id.line
