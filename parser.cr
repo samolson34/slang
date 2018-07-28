@@ -452,16 +452,18 @@ class Parser
 
         type = VT::Integer
         if operator.type == TT::AssignMultiply
-            Assignment.new l.name, type, Multiply.new(l, r, l.line), l.line
+            r = Multiply.new l, r, l.line
         elsif operator.type == TT::AssignDivide
-            Assignment.new l.name, type, Divide.new(l, r, l.line), l.line
+            r = Divide.new l, r, l.line
         elsif operator.type == TT::AssignMod
-            Assignment.new l.name, type, Mod.new(l, r, l.line), l.line
+            r = Mod.new l, r, l.line
         elsif operator.type == TT::AssignAdd
-            Assignment.new l.name, type, Add.new(l, r, l.line), l.line
+            r = Add.new l, r, l.line
         else
-            Assignment.new l.name, type, Subtract.new(l, r, l.line), l.line
+            r = Subtract.new l, r, l.line
         end
+
+        Assignment.new l.name, type, r, l.line
     end
 
     private def logicalAssign(env)
@@ -482,10 +484,12 @@ class Parser
 
         type = VT::Boolean
         if operator.type == TT::AssignAnd
-            Assignment.new l.name, type, And.new(l, r, l.line), l.line
+            r = And.new l, r, l.line
         else
-            Assignment.new l.name, type, Or.new(l, r, l.line), l.line
+            r = Or.new l, r, l.line
         end
+
+        Assignment.new l.name, type, And.new(l, r, l.line), l.line
     end
 
     # Function call
@@ -550,7 +554,6 @@ class Parser
             else
                 STDERR.puts "#{lineMsg arg}Argument #{actuals.size + 1} \
                     type does not match type signature in #{id.code}."
-
                 exit FAIL
             end
 
@@ -561,7 +564,6 @@ class Parser
             unless numArgs > actuals.size
                 STDERR.puts "#{lineMsg id}Too many arguments to function \
                     #{id.code}. \ Expected #{numArgs}."
-
                 exit FAIL
             end
         end
@@ -570,19 +572,18 @@ class Parser
         unless actuals.size == numArgs
             STDERR.puts "#{lineMsg id}Too few arguments to function \
                 #{id.code}. Expected #{numArgs}, not #{actuals.size}."
-
             exit FAIL
         end
 
         actuals
     end
 
-    # Logic behind order of precedence starts here
     private def expression(env)
         logicalOr env
     end
 
     private def logicalOr(env)
+        # Get left side
         a = logicalAnd env
         while curToken.type == TT::Or
             operator = curToken
@@ -592,6 +593,7 @@ class Parser
                 operatorError operator, a, BooleanExpression, "L"
             end
 
+            # Get right side
             b = logicalAnd env
 
             unless b.is_a? BooleanExpression | PlaceholderCall
@@ -632,6 +634,7 @@ class Parser
             operator = curToken
             @i += 1
             b = comparison env
+
             if operator.type == TT::Equal
                 a = Equal.new a, b, a.line
             else
@@ -759,10 +762,12 @@ class Parser
 
     private def atom(env)
         if curToken.type == TT::Integer
+            # Integer literal
             int = Integer.new curToken.code.to_i, curToken.line
             @i += 1
             int
         elsif curToken.type == TT::Boolean
+            # Boolean literal
             bool = Boolean.new (curToken.code == "true"), curToken.line
             @i += 1
             bool
