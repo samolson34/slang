@@ -1,5 +1,5 @@
 #!/home/bassbash/git-repos/slang/slang
-def no-arg
+def no-arg()
     println 0
 end
 

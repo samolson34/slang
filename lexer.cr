@@ -212,7 +212,7 @@ class Lexer
                     take
                     append TT::AssignOr
                 else
-                    STDERR.puts "#{lineMsg}Bitwise operations not supported."
+                    STDERR.puts "#{lineMsg}Bitwise operations not supported"
                     exit FAIL
                 end
 
@@ -226,7 +226,7 @@ class Lexer
                     take
                     append TT::AssignAnd
                 else
-                    STDERR.puts "#{lineMsg}Bitwise operations not supported."
+                    STDERR.puts "#{lineMsg}Bitwise operations not supported"
                     exit FAIL
                 end
 
@@ -245,11 +245,11 @@ class Lexer
 
             # Identifier
             # Must start with letter, not just ASCII. Follow with any letter
-            # or number or symbol in set: !@%$^&|*i\-_+/?
+            # or number or symbol in set: !@%$^&|*i\-_=+/?<>`~
             elsif curChar.letter?
                 while @i < @src.size && (
                         curChar.alphanumeric? ||
-                        curChar.in_set? "!@%$^&|*\\-_+/?"
+                        curChar.in_set? "!@%$^&|*\\-_=+/?<>`~"
                 )
                     take
                 end

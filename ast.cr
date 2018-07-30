@@ -237,7 +237,7 @@ class Definition < Statement
     def evaluate(env)
         if env.level > 1
             STDERR.puts "Line #{@line} -> Must define function at global \
-                scope."
+                scope"
             exit 1
         end
 
@@ -322,7 +322,7 @@ class IntegerVariable < IntegerExpression
     def evaluate(env)
         value = env.variables[@id].value
         unless value.is_a? Int32
-            STDERR.puts "Line #{@line} -> Integer variable error."
+            STDERR.puts "Line #{@line} -> Integer variable error"
             exit 1
         end
         value
@@ -437,7 +437,7 @@ class Divide < BinaryArithmetic
         b = @b.evaluate(env).as Int32
 
         if b == 0
-            STDERR.puts "Line #{@line} -> Division by zero not supported."
+            STDERR.puts "Line #{@line} -> Division by zero not supported"
             exit 1
         end
         a / b
@@ -450,7 +450,7 @@ class Mod < BinaryArithmetic
         b = @b.evaluate(env).as Int32
 
         if b == 0
-            STDERR.puts "Line #{@line} -> Modulus zero not supported."
+            STDERR.puts "Line #{@line} -> Modulus zero not supported"
             exit 1
         end
         a % b
@@ -485,7 +485,7 @@ class BooleanVariable < BooleanExpression
     def evaluate(env)
         value = env.variables[@id].value
         unless value.is_a? Bool
-            STDERR.puts "Line #{@line} -> Boolean variable error."
+            STDERR.puts "Line #{@line} -> Boolean variable error"
             exit 1
         end
         value

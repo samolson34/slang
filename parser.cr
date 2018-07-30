@@ -23,7 +23,7 @@ class Parser
         side += ' ' unless side.empty?
 
         STDERR.puts "#{lineMsg operand}For #{operator.code} #{side}operand: \
-            expected #{expected}, not #{operand.class}."
+            expected #{expected}, not #{operand.class}"
         exit FAIL
     end
 
@@ -73,7 +73,7 @@ class Parser
             # Stop if nested in if/while/def etc
             if env.level > 0
                 STDERR.puts "#{lineMsg curToken}Must define function at \
-                    global scope."
+                    global scope"
                 exit FAIL
             end
 
@@ -116,7 +116,15 @@ class Parser
             elsif env.functions.has_key?(curToken.code) &&
                     env.functions[curToken.code].returnType == RT::Void
 
-                call env
+                # Variables and functions can share an ID. Then function with
+                # no parameters must be called with ()
+                if env.variables.has_key?(curToken.code) &&
+                        operator.type != TT::ParenthesisL
+
+                    expression env
+                else
+                    call env
+                end
             else
                 # Function which returns non-Void is handled here, in case it
                 # is part of a larger expression
@@ -136,7 +144,7 @@ class Parser
         ifCondition = expression env
         unless ifCondition.is_a? BooleanExpression | PlaceholderCall
             STDERR.puts "#{lineMsg ifCondition}Expected BooleanExpression, \
-                not #{ifCondition.class}."
+                not #{ifCondition.class}"
             exit FAIL
         end
 
@@ -152,7 +160,7 @@ class Parser
             elfCondition = expression env
             unless elfCondition.is_a? BooleanExpression | PlaceholderCall
                 STDERR.puts "#{lineMsg elfCondition}Expected \
-                    BooleanExpression, not #{elfCondition.class}."
+                    BooleanExpression, not #{elfCondition.class}"
                 exit FAIL
             end
 
@@ -187,7 +195,7 @@ class Parser
         condition = expression env
         unless condition.is_a? BooleanExpression | PlaceholderCall
             STDERR.puts "#{lineMsg condition}Expected BooleanExpression, \
-                not #{condition.class}."
+                not #{condition.class}"
             exit FAIL
         end
 
@@ -205,7 +213,7 @@ class Parser
 
         unless curToken.type == TT::Identifier
             STDERR.puts "#{lineMsg curToken}Identifier expected after def, \
-                not #{curToken.code}." 
+                not #{curToken.code}"
             exit FAIL
         end
 
@@ -229,8 +237,14 @@ class Parser
                 end
 
                 unless curToken.type == TT::ParenthesisR
-                    STDERR.puts "#{lineMsg curToken(-1)}Expected )."
-                    exit FAIL
+                    if curToken.type == TT::Type
+                        STDERR.puts "#{lineMsg curToken}Separate parameters \
+                            with comma"
+                        exit FAIL
+                    else
+                        STDERR.puts "#{lineMsg curToken(-1)}Expected )"
+                        exit FAIL
+                    end
                 end
             end
             @i += 1
@@ -279,7 +293,7 @@ class Parser
             @i += 1
         else
             STDERR.puts "#{lineMsg curToken}Must name parameter types in \
-                function definition."
+                function definition"
             exit FAIL
         end
 
@@ -289,7 +303,7 @@ class Parser
             env.variables[curToken.code] = v
             @i += 1
         else
-            STDERR.puts "#{lineMsg curToken}Invalid formal parameter name: \
+            STDERR.puts "#{lineMsg curToken}Invalid formal parameter id: \
                 #{curToken.code}"
             exit FAIL
         end
@@ -303,7 +317,7 @@ class Parser
         until boundaries.includes? curToken.type
             if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg curToken}Expected end after \
-                    #{source}, not EOF."
+                    #{source}, not EOF"
                 exit FAIL
             end
             body << statement env
@@ -505,25 +519,26 @@ class Parser
 
         # Function has no parameters? Skip.
         # But in calling a function with no parameters, parentheses are
-        # optional. Enter to pass parentheses
+        # optional, and required when sharing an ID with a variable. Enter to
+        # pass parentheses
         if env.functions[id.code].numArgs > 0 ||
                 curToken.type == TT::ParenthesisL
 
             unless curToken.type == TT::ParenthesisL
                 STDERR.puts "#{lineMsg curToken(-1)}Expected () for passing \
-                    arguments to function."
+                    arguments to function"
                 exit FAIL
             end
             @i += 1
 
             # Check again because some people are in here with parentheses but
-            # no parameters
+            # no arguments
             if env.functions[id.code].numArgs > 0
                 actuals = getActuals env, id
             end
 
             unless curToken.type == TT::ParenthesisR
-                STDERR.puts "#{lineMsg curToken(-1)}Expected )."
+                STDERR.puts "#{lineMsg curToken(-1)}Expected )"
                 exit FAIL
             end
             @i += 1
@@ -547,7 +562,7 @@ class Parser
         #s = (numArgs == 1 ? "" : "s")  # Singular/plural?
 
         loop do
-            # Ensure expression type matches formal type
+            # Assert expression type matches formal type
             arg = expression env
             type = env.functions[id.code].formals[actuals.size].type
 
@@ -555,7 +570,12 @@ class Parser
                 actuals << arg
             else
                 STDERR.puts "#{lineMsg arg}Argument #{actuals.size + 1} \
-                    type does not match type signature in #{id.code}."
+                    type does not match type signature in #{id.code}"
+                exit FAIL
+            end
+
+            if curToken.type != TT::Comma && curToken.type != TT::ParenthesisR
+                STDERR.puts "#{lineMsg curToken}Separate arguments with comma"
                 exit FAIL
             end
 
@@ -776,7 +796,9 @@ class Parser
         elsif curToken.type == TT::Identifier
             id = curToken
 
-            if env.variables.has_key? id.code
+            if env.variables.has_key?(id.code) &&
+                    curToken(1).type != TT::ParenthesisL
+
                 # Use of variable value
                 @i += 1
                 if env.variables[id.code].type.is_a? VT::Integer
@@ -802,7 +824,7 @@ class Parser
             e = expression env
 
             unless curToken.type == TT::ParenthesisR
-                STDERR.puts "#{lineMsg curToken(-1)}Expected )."
+                STDERR.puts "#{lineMsg curToken(-1)}Expected )"
                 exit FAIL
             end
 

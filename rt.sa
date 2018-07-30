@@ -1,15 +1,21 @@
 #!/home/bassbash/git-repos/slang/slang
 
-def rt(int n)
-    if n == 0
-        rt(1)
+def rt(int rt, bool b)
+    if rt == 0
+        rt(1, b)
     else
-        while n > 0
-            println n
-            n -= 1
+        while rt > 0
+            println rt
+            rt -= 1
         end
     end
 end
 
+rt(0, true)
 
-rt(0)
+def var
+    -5
+end
+
+var = 3
+println var
