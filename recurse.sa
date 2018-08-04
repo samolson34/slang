@@ -1,3 +1,5 @@
+#!/home/bassbash/git-repos/slang/slang
+
 def double(int a)
     a * 2
 end

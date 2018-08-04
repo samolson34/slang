@@ -269,6 +269,14 @@ class Parser
         @i = checkpoint
 
         returnType = getReturnType body, id
+
+        if returnType == RT::Placeholder
+            # Last statement is call to self (not nested in if, while etc)
+            STDERR.puts "#{lineMsg body[-1]}Cannot determine return type of \
+                function #{id}"
+            exit FAIL
+        end
+
         env.functions[id].returnType = returnType
 
         # Get statements again, type checking turned back on since returnType
@@ -545,7 +553,7 @@ class Parser
         end
 
         if env.functions[id.code].returnType == RT::Placeholder
-            PlaceholderCall.new
+            PlaceholderCall.new id.line
         elsif env.functions[id.code].returnType == RT::Integer
             IntegerCall.new id.code, actuals, id.line
         elsif env.functions[id.code].returnType == RT::Boolean

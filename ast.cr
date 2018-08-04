@@ -301,6 +301,8 @@ abstract class Expression < Statement end
 # this time checking the types to ensure calls to self satisfy operators,
 # function calls etc.
 class PlaceholderCall < Expression
+    def initialize(@line) end
+
     def evaluate(env, n = 0)
         if n > 0
             50
