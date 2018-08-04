@@ -1,0 +1,5 @@
+#!/home/bassbash/git-repos/slang/slang
+
+a = true
+
+println (a &= false) || a
