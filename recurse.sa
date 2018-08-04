@@ -48,16 +48,15 @@ def prime?(int a)
     prime
 end
 
-i = 1
-    while i < 10
-    println i
+i = 0
+while i < 10
+    println i += 1
     println prime?(i)
-    i = i + 1
 end
 
 a = 26052001
 println a
-#prime?(a)
+prime?(a)
 
 recurse(14)
 loop(11)
@@ -69,7 +68,7 @@ if !b
     println !b
 end
 
-# <1-9 and whether prime>
+# <1-10 and whether prime>
 # 26052001
 # true
 # <14-0 doubled>

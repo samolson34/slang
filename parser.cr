@@ -434,9 +434,11 @@ class Parser
         if r.is_a? IntegerExpression | PlaceholderCall
             type = VT::Integer
             value = 0
+            instance = IntegerAssignment
         elsif r.is_a? BooleanExpression
             type = VT::Boolean
             value = false
+            instance = BooleanAssignment
         else
             STDERR.puts "#{lineMsg id}Error in variable assignment: \
                 #{id.code}"
@@ -453,13 +455,13 @@ class Parser
             env.variables[id.code] = Variable.new type, value
         end
 
-        Assignment.new id.code, type, r, id.line
+        instance.new id.code, type, r, id.line
     end
 
     private def arithmeticAssign(env)
         # Let atom get variable because BinaryArithmetic takes in two
         # IntegerExpressions
-        l = atom env
+        l = getVariable env
 
         operator = curToken
         @i += 1
@@ -472,6 +474,8 @@ class Parser
 
         unless r.is_a? IntegerExpression | PlaceholderCall
             operatorError operator, r, IntegerExpression, "R"
+            # All of a sudden this isn't detected :(
+            exit FAIL
         end
 
         type = VT::Integer
@@ -487,11 +491,11 @@ class Parser
             r = Subtract.new l, r, l.line
         end
 
-        Assignment.new l.id, type, r, l.line
+        IntegerAssignment.new l.id, type, r, l.line
     end
 
     private def logicalAssign(env)
-        l = atom env
+        l = getVariable env
 
         operator = curToken
         @i += 1
@@ -513,7 +517,7 @@ class Parser
             r = Or.new l, r, l.line
         end
 
-        Assignment.new l.id, type, And.new(l, r, l.line), l.line
+        BooleanAssignment.new l.id, type, And.new(l, r, l.line), l.line
     end
 
     # Function call
@@ -811,12 +815,27 @@ class Parser
             if env.variables.has_key?(id.code) &&
                     curToken(1).type != TT::ParenthesisL
 
-                # Use of variable value
-                @i += 1
-                if env.variables[id.code].type.is_a? VT::Integer
-                    IntegerVariable.new id.code, id.line
+                # Assignment
+                # Get operator, though it might not actually be an operator
+                operator = curToken(1)
+                if operator.type == TT::Assign
+                    assign env
+                elsif operator.type == TT::AssignMultiply ||
+                        operator.type == TT::AssignDivide ||
+                        operator.type == TT::AssignMod ||
+                        operator.type == TT::AssignAdd ||
+                        operator.type == TT::AssignSubtract
+
+                    # *= /= %/ += -=
+                    arithmeticAssign env
+                elsif operator.type == TT::AssignAnd ||
+                        operator.type == TT::AssignOr
+
+                    # &= |=
+                    logicalAssign env
                 else
-                    BooleanVariable.new id.code, id.line
+                    # Use of variable value
+                    getVariable env
                 end
             elsif env.functions.has_key? id.code
                 value = call env
@@ -846,6 +865,16 @@ class Parser
             STDERR.puts "#{lineMsg curToken}Unexpected token: \
                 #{curToken.code}. Expected expression."
             exit FAIL
+        end
+    end
+
+    private def getVariable(env)
+        id = curToken
+        @i += 1
+        if env.variables[id.code].type.is_a? VT::Integer
+            IntegerVariable.new id.code, id.line
+        else
+            BooleanVariable.new id.code, id.line
         end
     end
 end

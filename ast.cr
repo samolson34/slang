@@ -116,29 +116,6 @@ class Println < Print
     end
 end
 
-class Assignment < Statement
-    def initialize(
-        @id : String,
-        @type : Variable::VariableType,
-        @expression : Expression,
-        @line
-    ) end
-
-    def evaluate(env)
-        if env.variables.has_key? @id
-            # Reusing key so changes apply to parent Environments
-            env.variables[@id].type = @type
-            env.variables[@id].value = @expression.evaluate env
-        else
-            # New variable
-            env.variables[@id] = Variable.new(
-                @type,
-                @expression.evaluate env
-            )
-        end
-    end
-end
-
 class If < Statement
     getter ifBody, elfBodies, elseBody
 
@@ -377,6 +354,36 @@ class IntegerCall < IntegerExpression
     end
 end
 
+class IntegerAssignment < IntegerExpression
+    def initialize(
+        @id : String,
+        @type : Variable::VariableType,
+        @expression : Expression,
+        @line
+    ) end
+
+    def evaluate(env)
+        if env.variables.has_key? @id
+            # Reusing key so changes apply to parent Environments
+            env.variables[@id].type = @type
+            env.variables[@id].value = @expression.evaluate env
+        else
+            # New variable
+            env.variables[@id] = Variable.new(
+                @type,
+                @expression.evaluate env
+            )
+        end
+
+        unless env.variables[@id].value.is_a? Int32
+            STDERR.puts "IntegerAssignment error: #{@id}"
+            exit 1
+        end
+
+        env.variables[@id].value
+    end
+end
+
 # Integer literal
 class Integer < IntegerExpression
     def initialize(@value : Int32, @line) end
@@ -537,6 +544,36 @@ class BooleanCall < BooleanExpression
         end
 
         value
+    end
+end
+
+class BooleanAssignment < BooleanExpression
+    def initialize(
+        @id : String,
+        @type : Variable::VariableType,
+        @expression : Expression,
+        @line
+    ) end
+
+    def evaluate(env)
+        if env.variables.has_key? @id
+            # Reusing key so changes apply to parent Environments
+            env.variables[@id].type = @type
+            env.variables[@id].value = @expression.evaluate env
+        else
+            # New variable
+            env.variables[@id] = Variable.new(
+                @type,
+                @expression.evaluate env
+            )
+        end
+
+        unless env.variables[@id].value.is_a? Bool
+            STDERR.puts "BooleanAssignment error: #{@id}"
+            exit 1
+        end
+
+        env.variables[@id].value
     end
 end
 
