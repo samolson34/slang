@@ -95,42 +95,24 @@ class Parser
                 env.level + 1
             )
             define scope
-        elsif curToken.type == TT::Identifier
-            # Get operator, though it might not actually be an operator
-            operator = curToken(1)
-            if operator.type == TT::Assign
-                assign env
-            elsif operator.type == TT::AssignMultiply ||
-                    operator.type == TT::AssignDivide ||
-                    operator.type == TT::AssignMod ||
-                    operator.type == TT::AssignAdd ||
-                    operator.type == TT::AssignSubtract
+        elsif curToken.type == TT::Identifier &&
+                # Not an Assignment
+                ![TT::Assign, TT::Increment, TT::Decrement, TT::AssignAdd,
+                  TT::AssignSubtract, TT::AssignMultiply, TT::AssignDivide,
+                  TT::AssignMod, TT::AssignOr, TT::AssignAnd].
+                includes?(curToken(1).type) &&
+                # Is a Void-returning function
+                env.functions.has_key?(curToken.code) &&
+                env.functions[curToken.code].returnType == RT::Void &&
+                # Is not also an existing variable -- variables and functions
+                # may share an ID. Then function with no parameters must be
+                # called with ()
+                (curToken(1).type == TT::ParenthesisL ||
+                    !env.variables.has_key?(curToken.code))
 
-                # *= /= %/ += -=
-                arithmeticAssign env
-            elsif operator.type == TT::AssignAnd ||
-                    operator.type == TT::AssignOr
-
-                # &= |=
-                logicalAssign env
-            elsif env.functions.has_key?(curToken.code) &&
-                    env.functions[curToken.code].returnType == RT::Void
-
-                # Variables and functions can share an ID. Then function with
-                # no parameters must be called with ()
-                if env.variables.has_key?(curToken.code) &&
-                        operator.type != TT::ParenthesisL
-
-                    expression env
-                else
-                    call env
-                end
-            else
-                # Function which returns non-Void is handled here, in case it
-                # is part of a larger expression
-                expression env
-            end
+            call env
         else
+            # Assignments and non-Void-returning Functions are Expressions
             expression env
         end
     end
@@ -812,31 +794,29 @@ class Parser
         elsif curToken.type == TT::Identifier
             id = curToken
 
-            if env.variables.has_key?(id.code) &&
-                    curToken(1).type != TT::ParenthesisL
+            # Get operator, though it might not actually be an operator
+            operator = curToken(1)
 
-                # Assignment
-                # Get operator, though it might not actually be an operator
-                operator = curToken(1)
-                if operator.type == TT::Assign
-                    assign env
-                elsif operator.type == TT::AssignMultiply ||
-                        operator.type == TT::AssignDivide ||
-                        operator.type == TT::AssignMod ||
-                        operator.type == TT::AssignAdd ||
-                        operator.type == TT::AssignSubtract
+            if operator.type == TT::Assign
+                assign env
+            elsif operator.type == TT::AssignMultiply ||
+                    operator.type == TT::AssignDivide ||
+                    operator.type == TT::AssignMod ||
+                    operator.type == TT::AssignAdd ||
+                    operator.type == TT::AssignSubtract
 
-                    # *= /= %/ += -=
-                    arithmeticAssign env
-                elsif operator.type == TT::AssignAnd ||
-                        operator.type == TT::AssignOr
+                # *= /= %/ += -=
+                arithmeticAssign env
+            elsif operator.type == TT::AssignAnd ||
+                    operator.type == TT::AssignOr
 
-                    # &= |=
-                    logicalAssign env
-                else
-                    # Use of variable value
-                    getVariable env
-                end
+                # &= |=
+                logicalAssign env
+            elsif env.variables.has_key?(id.code) &&
+                    operator.type != TT::ParenthesisL
+
+                # Use of variable value
+                getVariable env
             elsif env.functions.has_key? id.code
                 value = call env
 
