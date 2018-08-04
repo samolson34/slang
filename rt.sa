@@ -6,7 +6,7 @@ def rt(int rt, bool b)
     else
         while rt > 0
             println rt
-            rt -= 1
+            rt --
         end
     end
 end

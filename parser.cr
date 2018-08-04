@@ -440,6 +440,7 @@ class Parser
         instance.new id.code, type, r, id.line
     end
 
+    # += -= *= /= %=
     private def arithmeticAssign(env)
         # Let atom get variable because BinaryArithmetic takes in two
         # IntegerExpressions
@@ -460,7 +461,6 @@ class Parser
             exit FAIL
         end
 
-        type = VT::Integer
         if operator.type == TT::AssignMultiply
             r = Multiply.new l, r, l.line
         elsif operator.type == TT::AssignDivide
@@ -473,9 +473,30 @@ class Parser
             r = Subtract.new l, r, l.line
         end
 
-        IntegerAssignment.new l.id, type, r, l.line
+        IntegerAssignment.new l.id, VT::Integer, r, l.line
     end
 
+    # ++ --
+    private def postfix(env)
+        l = getVariable env
+
+        operator = curToken
+        @i += 1
+
+        unless l.is_a? IntegerVariable
+            operatorError operator, l, IntegerVariable
+        end
+
+        if operator.type == TT::Increment
+            r = Add.new l, Integer.new(1, l.line), l.line
+        else
+            r = Subtract.new l, Integer.new(1, l.line), l.line
+        end
+
+        IntegerAssignment.new l.id, VT::Integer, r, l.line
+    end
+
+    # &= |=
     private def logicalAssign(env)
         l = getVariable env
 
@@ -492,14 +513,13 @@ class Parser
             operatorError operator, r, BooleanExpression, "R"
         end
 
-        type = VT::Boolean
         if operator.type == TT::AssignAnd
             r = And.new l, r, l.line
         else
             r = Or.new l, r, l.line
         end
 
-        BooleanAssignment.new l.id, type, And.new(l, r, l.line), l.line
+        BooleanAssignment.new l.id, VT::Boolean, And.new(l, r, l.line), l.line
     end
 
     # Function call
@@ -799,6 +819,11 @@ class Parser
 
             if operator.type == TT::Assign
                 assign env
+            elsif operator.type == TT::Increment ||
+                    operator.type == TT::Decrement
+
+                # ++ --
+                postfix env
             elsif operator.type == TT::AssignMultiply ||
                     operator.type == TT::AssignDivide ||
                     operator.type == TT::AssignMod ||
@@ -813,7 +838,8 @@ class Parser
                 # &= |=
                 logicalAssign env
             elsif env.variables.has_key?(id.code) &&
-                    operator.type != TT::ParenthesisL
+                    (operator.type != TT::ParenthesisL ||
+                        !env.functions.has_key? id.code)
 
                 # Use of variable value
                 getVariable env

@@ -4,7 +4,7 @@ def list-args
     i = 0
     while i < ARGC
         println ARG0
-        i += 1
+        i ++
     end
 end
 

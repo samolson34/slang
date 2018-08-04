@@ -39,8 +39,8 @@ def pow(int a, int b)
     ans = 1
 
     while b > 0
-        ans = ans * a
-        b = b - 1
+        ans *= a
+        b --
     end
 
     ans

@@ -13,6 +13,7 @@ class Token
         Boolean
         Comma
         Define
+        Decrement
         EOF
         Elf
         Else
@@ -22,6 +23,7 @@ class Token
         GreaterOrEqual
         Identifier
         If
+        Increment
         Integer
         Less
         LessOrEqual
@@ -145,7 +147,10 @@ class Lexer
             # Plus
             elsif curChar == '+'
                 take
-                if curChar == '='
+                if curChar == '+'
+                    take
+                    append TT::Increment
+                elsif curChar == '='
                     take
                     append TT::AssignAdd
                 else
@@ -155,7 +160,11 @@ class Lexer
             # Minus
             elsif curChar == '-'
                 take
-                if curChar == '='
+
+                if curChar == '-'
+                    take
+                    append TT::Decrement
+                elsif curChar == '='
                     take
                     append TT::AssignSubtract
                 else

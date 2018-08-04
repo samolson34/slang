@@ -16,7 +16,7 @@ while i < 3
     d = i * 2
     println d
 
-    i = i + 1
+    i ++
 end
 
 println i
