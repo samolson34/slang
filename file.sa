@@ -29,8 +29,8 @@ def boo
     true
 end
 
-no-arg
-println two-arg(5 + 5 , true)
+no-arg()
+println two-arg(5 + 5, true)
 call-func
 empty-func
 

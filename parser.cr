@@ -389,7 +389,7 @@ class Parser
                         # If they're all Placeholders, error
                         if value == RT::Placeholder
                             expr = ifStatement.elseBody.statements[-1]
-                            STDERR.puts "#{lineMsg expr}Cannot determine\
+                            STDERR.puts "#{lineMsg expr}Cannot determine \
                                 return type of function #{id}"
                             exit FAIL
                         end
@@ -539,11 +539,7 @@ class Parser
             end
             @i += 1
 
-            # Check again because some people are in here with parentheses but
-            # no arguments
-            if env.functions[id.code].numArgs > 0
-                actuals = getActuals env, id
-            end
+            actuals = getActuals env, id
 
             unless curToken.type == TT::ParenthesisR
                 STDERR.puts "#{lineMsg curToken(-1)}Expected )"
@@ -569,32 +565,40 @@ class Parser
         numArgs = env.functions[id.code].numArgs
         #s = (numArgs == 1 ? "" : "s")  # Singular/plural?
 
-        loop do
-            # Assert expression type matches formal type
-            arg = expression env
-            type = env.functions[id.code].formals[actuals.size].type
+        # Some people are in here with parentheses but no arguments
+        unless curToken.type == TT::ParenthesisR
+            loop do
+                # Must not be too many arguments. Check first to catch call to
+                # function with 0 parameters
+                unless actuals.size < numArgs
+                    STDERR.puts "#{lineMsg id}Too many arguments to function \
+                        #{id.code}. Expected #{numArgs}."
+                    exit FAIL
+                end
 
-            if (type.match arg)
-                actuals << arg
-            else
-                STDERR.puts "#{lineMsg arg}Argument #{actuals.size + 1} \
-                    type does not match type signature in #{id.code}"
-                exit FAIL
-            end
+                # Assert expression type matches formal type
+                arg = expression env
+                type = env.functions[id.code].formals[actuals.size].type
 
-            if curToken.type != TT::Comma && curToken.type != TT::ParenthesisR
-                STDERR.puts "#{lineMsg curToken}Separate arguments with comma"
-                exit FAIL
-            end
+                if (type.match arg)
+                    actuals << arg
+                else
+                    STDERR.puts "#{lineMsg arg}Argument #{actuals.size + 1} \
+                        type does not match type signature in #{id.code}"
+                    exit FAIL
+                end
 
-            break unless curToken.type == TT::Comma
-            @i += 1
+                if curToken.type != TT::Comma &&
+                        curToken.type != TT::ParenthesisR &&
+                        actuals.size < numArgs
 
-            # Must not be too many arguments
-            unless numArgs > actuals.size
-                STDERR.puts "#{lineMsg id}Too many arguments to function \
-                    #{id.code}. \ Expected #{numArgs}."
-                exit FAIL
+                    STDERR.puts "#{lineMsg curToken}Separate arguments with \
+                        comma"
+                    exit FAIL
+                end
+
+                break unless curToken.type == TT::Comma
+                @i += 1
             end
         end
 
