@@ -7,7 +7,7 @@ require "./ast.cr"
 FAIL = 1
 
 if ARGV.empty?
-    STDERR.puts "usage: slang <source file>"
+    STDERR.puts "Usage: slang <source file>"
     exit FAIL
 end
 
