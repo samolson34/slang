@@ -1,0 +1,35 @@
+#!/home/bassbash/git-repos/slang/slang
+
+# Multiplicative before Additive : false, true
+println (5 * 3 + 2 - 4) == (5 * (3 + 2 - 4))
+println (5 * 3 + 2 - 4) == ((5 * 3) + 2 - 4)
+
+# Additive before Comparison : fail, true
+#6 + (8 > 7) + 9
+println (6 + 8 < 7 + 9) == ((6 + 8) < (7 + 9))
+
+# Additive before Equality : fail, true
+#1 + (1 == 0) + 2
+println (1 + 1 == 0 + 2) == ((1 + 1) == (0 + 2))
+
+# Comparison before Equality : fail, true
+#11 > (10 == 12) > 11
+println (11 > 10 == 12 > 11) == ((11 > 10) == (12 > 11))
+
+# Equality before And : fail, true
+#(1 == (1 && 1) == 1)
+println (1 == 1 && 1 == 1) == ((1 == 1) && (1 == 1))
+
+# And before Or : false, true
+println (true || true && false) == ((true || true) && false)
+println (true || true && false) == (true || (true && false))
+
+a = 0
+b = false
+
+# 
+a = b || (a = true)
+
+# Assignments right to left
+#(a = b) = true
+(a = b = true) == (a = (b = true))
