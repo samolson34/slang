@@ -35,7 +35,7 @@ class Parser
     # Environment necessary to maintain scope of variables (and perhaps
     # functions in the future)
     def parse(env : Environment)
-        statements = [] of Statement
+        statements = [] of Statement | PlaceholderCall
         until curToken.type == TT::EOF
             statements << statement env
         end
@@ -151,7 +151,7 @@ class Parser
         end
 
         # else
-        elseBody = [] of Statement
+        elseBody = [] of Statement | PlaceholderCall
         if curToken.type == TT::Else
             @i += 1
             elseBody = getBody env, "else"
@@ -234,7 +234,7 @@ class Parser
 
         # Add function to environment. Body not necessary because parser only
         # checks whether function exists.
-        body = [] of Statement
+        body = [] of Statement | PlaceholderCall
         env.functions[id] = Function.new(
             formals,
             Block.new(body),
@@ -303,7 +303,7 @@ class Parser
 
     # Called by conditional, whileLoop, define
     private def getBody(env, source, boundaries = [TT::End])
-        body = [] of Statement
+        body = [] of Statement | PlaceholderCall
         until boundaries.includes? curToken.type
             if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg curToken}Expected end after \
@@ -416,11 +416,11 @@ class Parser
         if r.is_a? IntegerExpression | PlaceholderCall
             type = VT::Integer
             value = 0
-            instance = IntegerAssignment
+            expr = IntegerAssignment.new id.code, type, r, id.line
         elsif r.is_a? BooleanExpression
             type = VT::Boolean
             value = false
-            instance = BooleanAssignment
+            expr = BooleanAssignment.new id.code, type, r, id.line
         else
             STDERR.puts "#{lineMsg id}Error in variable assignment: \
                 #{id.code}"
@@ -437,7 +437,7 @@ class Parser
             env.variables[id.code] = Variable.new type, value
         end
 
-        instance.new id.code, type, r, id.line
+        expr
     end
 
     # += -= *= /= %=
@@ -511,6 +511,8 @@ class Parser
 
         unless r.is_a? BooleanExpression | PlaceholderCall
             operatorError operator, r, BooleanExpression, "R"
+            # 26.1 and this statement is needed -.-
+            exit FAIL
         end
 
         if operator.type == TT::AssignAnd
@@ -529,7 +531,7 @@ class Parser
 
         # Actuals are expressions passed in as arguments to function:
         # function(actual 1, (actual2.1 && actual2.2))
-        actuals = [] of Expression
+        actuals = [] of Expression | PlaceholderCall
 
         # Function has no parameters? Skip.
         # But in calling a function with no parameters, parentheses are
@@ -566,7 +568,7 @@ class Parser
     end
 
     private def getActuals(env, id)
-        actuals = [] of Expression
+        actuals = [] of Expression | PlaceholderCall
 
         numArgs = env.functions[id.code].numArgs
         #s = (numArgs == 1 ? "" : "s")  # Singular/plural?
@@ -846,11 +848,17 @@ class Parser
             elsif env.functions.has_key? id.code
                 value = call env
 
-                if value.is_a? VoidCall
+                #if value.is_a? VoidCall
+                    #STDERR.puts "#{lineMsg id}Expected expression, not \
+                        ##{value.class}"
+                    #exit FAIL
+                #end
+                unless value.is_a? Expression | PlaceholderCall
                     STDERR.puts "#{lineMsg id}Expected expression, not \
                         #{value.class}"
                     exit FAIL
                 end
+
                 value
             else
                 STDERR.puts "#{lineMsg id}Uninitialized variable: #{id.code}"

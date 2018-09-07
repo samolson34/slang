@@ -14,9 +14,9 @@ class Variable
         Boolean
         Integer
 
-        def match(expr : Expression)
+        def match(expr : Expression | PlaceholderCall)
             expr.is_a? PlaceholderCall ||
-            (self == Boolean && expr.is_a? BooleanExpression) ||
+                (self == Boolean && expr.is_a? BooleanExpression) ||
                 (self == Integer && expr.is_a? IntegerExpression)
         end
     end
@@ -82,11 +82,16 @@ end
 class Block
     getter statements
 
-    def initialize(@statements : Array(Statement)) end
+    def initialize(@statements : Array(Statement | PlaceholderCall)) end
 
     def evaluate(env : Environment)
         value = 0
         @statements.each do |statement|
+            unless statement.is_a? Statement
+                STDERR.puts "Line #{statement.line} -> PlaceholderCall \
+                    evaluated"
+                exit 1
+            end
             value = statement.evaluate env
         end
 
@@ -104,6 +109,13 @@ end
 
 class Print < Statement
     def initialize(@message : Expression, @line) end
+
+    def initialize(@message : Expression | PlaceholderCall, @line)
+        unless @message.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 
     def evaluate(env)
         print @message.evaluate env
@@ -186,6 +198,7 @@ class While < Statement
     )
         unless @condition.is_a? PlaceholderCall
             STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
         end
     end
 
@@ -224,7 +237,13 @@ end
 
 # Function call which returns void
 class VoidCall < Statement
-    def initialize(@id : String, @actuals : Array(Expression), @line) end
+    #def initialize(@id : String, @actuals : Array(Expression), @line) end
+
+    def initialize(
+        @id : String,
+        @actuals : Array(Expression | PlaceholderCall),
+        @line
+    ) end
 
     def evaluate(env)
         func = env.functions[@id]
@@ -277,8 +296,10 @@ abstract class Expression < Statement end
 # function's return type is known, and the definition is parsed a second time,
 # this time checking the types to ensure calls to self satisfy operators,
 # function calls etc.
-class PlaceholderCall < Expression
-    def initialize(@line) end
+class PlaceholderCall
+    getter line
+
+    def initialize(@line : Int32) end
 
     def evaluate(env, n = 0)
         if n > 0
@@ -310,7 +331,13 @@ end
 
 # Function call which returns Integer
 class IntegerCall < IntegerExpression
-    def initialize(@id : String, @actuals : Array(Expression), @line) end
+    #def initialize(@id : String, @actuals : Array(Expression), @line) end
+
+    def initialize(
+        @id : String,
+        @actuals : Array(Expression | PlaceholderCall),
+        @line
+    ) end
 
     def evaluate(env)
         func = env.functions[@id]
@@ -361,6 +388,18 @@ class IntegerAssignment < IntegerExpression
         @expression : Expression,
         @line
     ) end
+
+    def initialize(
+        @id : String,
+        @type : Variable::VariableType,
+        @expression : Expression | PlaceholderCall,
+        @line
+    )
+        unless @expression.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
 
     def evaluate(env)
         if env.variables.has_key? @id
@@ -503,7 +542,13 @@ end
 
 # Function call which returns Boolean
 class BooleanCall < BooleanExpression
-    def initialize(@id : String, @actuals : Array(Expression), @line) end
+    #def initialize(@id : String, @actuals : Array(Expression), @line) end
+
+    def initialize(
+        @id : String,
+        @actuals : Array(Expression | PlaceholderCall),
+        @line
+    ) end
 
     def evaluate(env)
         func = env.functions[@id]

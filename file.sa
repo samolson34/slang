@@ -6,7 +6,7 @@ end
 
 def two-arg(int one, bool two)
     two |= false
-    one ++`
+    one ++
     if two
         one
     else
