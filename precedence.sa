@@ -27,9 +27,15 @@ println (true || true && false) == (true || (true && false))
 a = 0
 b = false
 
-# 
-a = b || (a = true)
+# Assignment before Or : fail, true
+# println a = (b || a) = true
+println (a = b || a = true) == (a = b || (a = true))
 
-# Assignments right to left
+# Assignments right to left : fail, true
 #(a = b) = true
-(a = b = true) == (a = (b = true))
+println (a = b = true) == (a = (b = true))
+
+# false
+# true (x5)
+# false
+# true (x3)
