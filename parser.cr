@@ -27,6 +27,12 @@ class Parser
         exit FAIL
     end
 
+    private def parenthesisError(operand)
+        STDERR.puts "#{lineMsg operand}Illegal operator mix or chain. Add \
+            parentheses for readability"
+        exit FAIL
+    end
+
     # For error messages
     private def lineMsg(expr)
         "Line #{expr.line} -> "
