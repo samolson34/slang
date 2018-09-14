@@ -14,15 +14,18 @@ println (1 + 1 == 0 + 2) == ((1 + 1) == (0 + 2))
 
 # Comparison before Equality : fail, true
 #11 > (10 == 12) > 11
-println (11 > 10 == 12 > 11) == ((11 > 10) == (12 > 11))
+#println (11 > 10 == 12 > 11) == ((11 > 10) == (12 > 11))
 
 # Equality before And : fail, true
 #(1 == (1 && 1) == 1)
 println (1 == 1 && 1 == 1) == ((1 == 1) && (1 == 1))
 
 # And before Or : false, true
-println (true || true && false) == ((true || true) && false)
-println (true || true && false) == (true || (true && false))
+#println (true || true && false) == ((true || true) && false)
+#println (true || true && false) == (true || (true && false))
+
+# If And & Or have same precedence, false. Else, true
+#println (false && true || true) == (true || true && false)
 
 a = 0
 b = false

@@ -632,94 +632,84 @@ class Parser
 
     private def logicalOr(env)
         # Get left side
-        a = logicalAnd env
-        while curToken.type == TT::Or
+        a = relational env
+        while curToken.type == TT::Or ||
+                curToken.type == TT::And
+
+            # Get operator
             operator = curToken
             @i += 1
 
             unless a.is_a? BooleanExpression | PlaceholderCall
                 operatorError operator, a, BooleanExpression, "L"
+            end
+
+            # Illegal to mix || and &&
+            match = (operator.type == TT::Or && !a.is_a? And) ||
+                (operator.type == TT::And && !a.is_a? Or)
+
+            if !a.parenthesized && !match
+                parenthesisError a
             end
 
             # Get right side
-            b = logicalAnd env
-
-            unless b.is_a? BooleanExpression | PlaceholderCall
-                operatorError operator, b, BooleanExpression, "R"
-            end
-
-            a = Or.new a, b, a.line
-        end
-        a
-    end
-
-    private def logicalAnd(env)
-        a = relational env
-        while curToken.type == TT::And
-            operator = curToken
-            @i += 1
-
-            unless a.is_a? BooleanExpression | PlaceholderCall
-                operatorError operator, a, BooleanExpression, "L"
-            end
-
             b = relational env
 
             unless b.is_a? BooleanExpression | PlaceholderCall
                 operatorError operator, b, BooleanExpression, "R"
             end
 
-            a = And.new a, b, a.line
+            if operator.type == TT::Or
+                a = Or.new a, b, a.line
+            else
+                a = And.new a, b, a.line
+            end
         end
         a
     end
 
     private def relational(env)
-        a = comparison env
-        while curToken.type == TT::Equal ||
-                curToken.type == TT::NotEqual
-
-            operator = curToken
-            @i += 1
-            b = comparison env
-
-            if operator.type == TT::Equal
-                a = Equal.new a, b, a.line
-            else
-                a = NotEqual.new a, b, a.line
-            end
-        end
-        a
-    end
-
-    private def comparison(env)
         a = additive env
-        while curToken.type == TT::Greater ||
+        while curToken.type == TT::Equal ||
+                curToken.type == TT::NotEqual ||
+                curToken.type == TT::Greater ||
                 curToken.type == TT::GreaterOrEqual ||
                 curToken.type == TT::LessOrEqual ||
                 curToken.type == TT::Less
 
+            # Illegal to chain relational/comparison operators without
+            # parentheses
+            if !a.parenthesized && a.is_a? RelationalOperator
+                parenthesisError a
+            end
+
             operator = curToken
             @i += 1
-
-            unless a.is_a? IntegerExpression | PlaceholderCall
-                operatorError operator, a, IntegerExpression, "L"
-            end
-
             b = additive env
 
-            unless b.is_a? IntegerExpression | PlaceholderCall
-                operatorError operator, b, IntegerExpression, "R"
-            end
-
-            if operator.type == TT::Greater
-                a = Greater.new a, b, a.line
-            elsif operator.type == TT::GreaterOrEqual
-                a = GreaterOrEqual.new a, b, a.line
-            elsif operator.type == TT::LessOrEqual
-                a = LessOrEqual.new a, b, a.line
+            if operator.type == TT::Equal
+                a = Equal.new a, b, a.line
+            elsif operator.type == TT::NotEqual
+                a = NotEqual.new a, b, a.line
             else
-                a = Less.new a, b, a.line
+                # Comparison operator
+                unless a.is_a? IntegerExpression | PlaceholderCall
+                    operatorError operator, a, IntegerExpression, "L"
+                end
+
+                unless b.is_a? IntegerExpression | PlaceholderCall
+                    operatorError operator, b, IntegerExpression, "R"
+                end
+
+                if operator.type == TT::Greater
+                    a = Greater.new a, b, a.line
+                elsif operator.type == TT::GreaterOrEqual
+                    a = GreaterOrEqual.new a, b, a.line
+                elsif operator.type == TT::LessOrEqual
+                    a = LessOrEqual.new a, b, a.line
+                else
+                    a = Less.new a, b, a.line
+                end
             end
         end
         a
@@ -854,11 +844,6 @@ class Parser
             elsif env.functions.has_key? id.code
                 value = call env
 
-                #if value.is_a? VoidCall
-                    #STDERR.puts "#{lineMsg id}Expected expression, not \
-                        ##{value.class}"
-                    #exit FAIL
-                #end
                 unless value.is_a? Expression | PlaceholderCall
                     STDERR.puts "#{lineMsg id}Expected expression, not \
                         #{value.class}"
@@ -880,6 +865,7 @@ class Parser
             end
 
             @i += 1
+            e.parenthesize
             e
         else
             STDERR.puts "#{lineMsg curToken}Unexpected token: \

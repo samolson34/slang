@@ -287,7 +287,13 @@ class VoidCall < Statement
 end
 
 # Expression returns non-Void
-abstract class Expression < Statement end
+abstract class Expression < Statement
+    getter parenthesized = false
+
+    def parenthesize
+        @parenthesized = true
+    end
+end
 
 # PlaceholderCall is used in first parse of function definition in order to
 # determine function return type. It satisfies all type checks. During first 
@@ -298,6 +304,7 @@ abstract class Expression < Statement end
 # function calls etc.
 class PlaceholderCall
     getter line
+    getter parenthesized = false
 
     def initialize(@line : Int32) end
 
@@ -307,6 +314,10 @@ class PlaceholderCall
         else
             false
         end
+    end
+
+    def parenthesize
+        @parenthesized = true
     end
 end
 
