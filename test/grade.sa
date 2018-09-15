@@ -1,3 +1,5 @@
+#!/home/bassbash/git-repos/slang/slang
+
 def grade(int score)
     if score >= 90
         1

@@ -32,11 +32,11 @@ b = false
 
 # Assignment before Or : fail, true
 # println a = (b || a) = true
-println (a = b || a = true) == (a = b || (a = true))
+#println (a = b || a = true) == (a = b || (a = true))
 
 # Assignments right to left : fail, true
 #(a = b) = true
-println (a = b = true) == (a = (b = true))
+#println (a = b = true) == (a = (b = true))
 
 # false
 # true (x5)

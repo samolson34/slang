@@ -2,4 +2,4 @@
 
 a = true
 
-println (a &= false) || a
+#println (a &= false) || a

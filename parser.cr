@@ -101,24 +101,48 @@ class Parser
                 env.level + 1
             )
             define scope
-        elsif curToken.type == TT::Identifier &&
-                # Not an Assignment
-                ![TT::Assign, TT::Increment, TT::Decrement, TT::AssignAdd,
-                  TT::AssignSubtract, TT::AssignMultiply, TT::AssignDivide,
-                  TT::AssignMod, TT::AssignOr, TT::AssignAnd].
-                includes?(curToken(1).type) &&
-                # Is a Void-returning function
-                env.functions.has_key?(curToken.code) &&
-                env.functions[curToken.code].returnType == RT::Void &&
-                # Is not also an existing variable -- variables and functions
-                # may share an ID. Then function with no parameters must be
-                # called with ()
-                (curToken(1).type == TT::ParenthesisL ||
-                    !env.variables.has_key?(curToken.code))
+        elsif curToken.type == TT::Identifier
+            # Get operator, though it might not actually be an operator
+            operator = curToken(1)
 
-            call env
+            if operator.type == TT::Assign
+
+                # =
+                assign env
+            elsif operator.type == TT::Increment ||
+                    operator.type == TT::Decrement
+
+                # ++ --
+                postfix env
+            elsif operator.type == TT::AssignMultiply ||
+                    operator.type == TT::AssignDivide ||
+                    operator.type == TT::AssignMod ||
+                    operator.type == TT::AssignAdd ||
+                    operator.type == TT::AssignSubtract
+
+                # *= /= %/ += -=
+                arithmeticAssign env
+            elsif operator.type == TT::AssignAnd ||
+                    operator.type == TT::AssignOr
+
+                # &= |=
+                logicalAssign env
+            elsif env.functions.has_key?(curToken.code) &&
+                    env.functions[curToken.code].returnType == RT::Void &&
+                    # Is not also an existing variable -- variables and
+                    # functions may share an ID. Then function with no
+                    # parameters must be called with ()
+                    (operator.type == TT::ParenthesisL ||
+                        !env.variables.has_key? curToken.code)
+
+                # Void-returning Function
+                call env
+            else
+                # Non-Void-returning Functions are Expressions. Use of
+                # variable also handled here
+                expression env
+            end
         else
-            # Assignments and non-Void-returning Functions are Expressions
             expression env
         end
     end
@@ -422,11 +446,9 @@ class Parser
         if r.is_a? IntegerExpression | PlaceholderCall
             type = VT::Integer
             value = 0
-            expr = IntegerAssignment.new id.code, type, r, id.line
         elsif r.is_a? BooleanExpression
             type = VT::Boolean
             value = false
-            expr = BooleanAssignment.new id.code, type, r, id.line
         else
             STDERR.puts "#{lineMsg id}Error in variable assignment: \
                 #{id.code}"
@@ -443,12 +465,12 @@ class Parser
             env.variables[id.code] = Variable.new type, value
         end
 
-        expr
+        Assignment.new id.code, type, r, id.line
     end
 
     # += -= *= /= %=
     private def arithmeticAssign(env)
-        # Let atom get variable because BinaryArithmetic takes in two
+        # getVariable because BinaryArithmetic takes in two
         # IntegerExpressions
         l = getVariable env
 
@@ -479,7 +501,7 @@ class Parser
             r = Subtract.new l, r, l.line
         end
 
-        IntegerAssignment.new l.id, VT::Integer, r, l.line
+        Assignment.new l.id, VT::Integer, r, l.line
     end
 
     # ++ --
@@ -499,7 +521,7 @@ class Parser
             r = Subtract.new l, Integer.new(1, l.line), l.line
         end
 
-        IntegerAssignment.new l.id, VT::Integer, r, l.line
+        Assignment.new l.id, VT::Integer, r, l.line
     end
 
     # &= |=
@@ -527,7 +549,7 @@ class Parser
             r = Or.new l, r, l.line
         end
 
-        BooleanAssignment.new l.id, VT::Boolean, And.new(l, r, l.line), l.line
+        Assignment.new l.id, VT::Boolean, r, l.line
     end
 
     # Function call
@@ -627,10 +649,21 @@ class Parser
     end
 
     private def expression(env)
-        logicalOr env
+        e = logical env
+        # Assignment is not an Expression
+        if [TT::Assign, TT::Increment, TT::Decrement, TT::AssignAdd,
+            TT::AssignSubtract, TT::AssignMultiply, TT::AssignDivide,
+            TT::AssignMod, TT::AssignOr, TT::AssignAnd].
+                includes? curToken.type
+
+            STDERR.puts "#{lineMsg curToken}Expected expression, not \
+                Assignment"
+            exit FAIL
+        end
+        e
     end
 
-    private def logicalOr(env)
+    private def logical(env)
         # Get left side
         a = relational env
         while curToken.type == TT::Or ||
@@ -649,7 +682,7 @@ class Parser
                 (operator.type == TT::And && !a.is_a? Or)
 
             if !a.parenthesized && !match
-                parenthesisError a
+                parenthesisError operator
             end
 
             # Get right side
@@ -680,7 +713,7 @@ class Parser
             # Illegal to chain relational/comparison operators without
             # parentheses
             if !a.parenthesized && a.is_a? RelationalOperator
-                parenthesisError a
+                parenthesisError curToken
             end
 
             operator = curToken
@@ -812,31 +845,8 @@ class Parser
         elsif curToken.type == TT::Identifier
             id = curToken
 
-            # Get operator, though it might not actually be an operator
-            operator = curToken(1)
-
-            if operator.type == TT::Assign
-                assign env
-            elsif operator.type == TT::Increment ||
-                    operator.type == TT::Decrement
-
-                # ++ --
-                postfix env
-            elsif operator.type == TT::AssignMultiply ||
-                    operator.type == TT::AssignDivide ||
-                    operator.type == TT::AssignMod ||
-                    operator.type == TT::AssignAdd ||
-                    operator.type == TT::AssignSubtract
-
-                # *= /= %/ += -=
-                arithmeticAssign env
-            elsif operator.type == TT::AssignAnd ||
-                    operator.type == TT::AssignOr
-
-                # &= |=
-                logicalAssign env
-            elsif env.variables.has_key?(id.code) &&
-                    (operator.type != TT::ParenthesisL ||
+            if env.variables.has_key?(id.code) &&
+                    (curToken(1).type != TT::ParenthesisL ||
                         !env.functions.has_key? id.code)
 
                 # Use of variable value
@@ -844,6 +854,7 @@ class Parser
             elsif env.functions.has_key? id.code
                 value = call env
 
+                # No Void-returning Functions here
                 unless value.is_a? Expression | PlaceholderCall
                     STDERR.puts "#{lineMsg id}Expected expression, not \
                         #{value.class}"

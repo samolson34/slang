@@ -215,6 +215,42 @@ class While < Statement
     end
 end
 
+class Assignment < Statement
+    def initialize(
+        @id : String,
+        @type : Variable::VariableType,
+        @expression : Expression,
+        @line
+    ) end
+
+    def initialize(
+        @id : String,
+        @type : Variable::VariableType,
+        @expression : Expression | PlaceholderCall,
+        @line
+    )
+        unless @expression.is_a? PlaceholderCall
+            STDERR.puts "Line #{@line} -> Placeholder error"
+            exit 1
+        end
+    end
+
+    def evaluate(env)
+        if env.variables.has_key? @id
+            # Reusing key so changes apply to parent Environments
+            env.variables[@id].type = @type
+            env.variables[@id].value = @expression.evaluate env
+        else
+            # New variable
+            env.variables[@id] = Variable.new(
+                @type,
+                @expression.evaluate env
+            )
+        end
+        return
+    end
+end
+
 class Definition < Statement
     def initialize(
         @id : String,
@@ -237,8 +273,6 @@ end
 
 # Function call which returns void
 class VoidCall < Statement
-    #def initialize(@id : String, @actuals : Array(Expression), @line) end
-
     def initialize(
         @id : String,
         @actuals : Array(Expression | PlaceholderCall),
@@ -342,8 +376,6 @@ end
 
 # Function call which returns Integer
 class IntegerCall < IntegerExpression
-    #def initialize(@id : String, @actuals : Array(Expression), @line) end
-
     def initialize(
         @id : String,
         @actuals : Array(Expression | PlaceholderCall),
@@ -389,48 +421,6 @@ class IntegerCall < IntegerExpression
         end
 
         value
-    end
-end
-
-class IntegerAssignment < IntegerExpression
-    def initialize(
-        @id : String,
-        @type : Variable::VariableType,
-        @expression : Expression,
-        @line
-    ) end
-
-    def initialize(
-        @id : String,
-        @type : Variable::VariableType,
-        @expression : Expression | PlaceholderCall,
-        @line
-    )
-        unless @expression.is_a? PlaceholderCall
-            STDERR.puts "Line #{@line} -> Placeholder error"
-            exit 1
-        end
-    end
-
-    def evaluate(env)
-        if env.variables.has_key? @id
-            # Reusing key so changes apply to parent Environments
-            env.variables[@id].type = @type
-            env.variables[@id].value = @expression.evaluate env
-        else
-            # New variable
-            env.variables[@id] = Variable.new(
-                @type,
-                @expression.evaluate env
-            )
-        end
-
-        unless env.variables[@id].value.is_a? Int32
-            STDERR.puts "IntegerAssignment error: #{@id}"
-            exit 1
-        end
-
-        env.variables[@id].value
     end
 end
 
@@ -553,8 +543,6 @@ end
 
 # Function call which returns Boolean
 class BooleanCall < BooleanExpression
-    #def initialize(@id : String, @actuals : Array(Expression), @line) end
-
     def initialize(
         @id : String,
         @actuals : Array(Expression | PlaceholderCall),
@@ -600,36 +588,6 @@ class BooleanCall < BooleanExpression
         end
 
         value
-    end
-end
-
-class BooleanAssignment < BooleanExpression
-    def initialize(
-        @id : String,
-        @type : Variable::VariableType,
-        @expression : Expression,
-        @line
-    ) end
-
-    def evaluate(env)
-        if env.variables.has_key? @id
-            # Reusing key so changes apply to parent Environments
-            env.variables[@id].type = @type
-            env.variables[@id].value = @expression.evaluate env
-        else
-            # New variable
-            env.variables[@id] = Variable.new(
-                @type,
-                @expression.evaluate env
-            )
-        end
-
-        unless env.variables[@id].value.is_a? Bool
-            STDERR.puts "BooleanAssignment error: #{@id}"
-            exit 1
-        end
-
-        env.variables[@id].value
     end
 end
 
