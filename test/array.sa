@@ -1,0 +1,19 @@
+def retArr(bool b)
+    if b
+        [] of int
+    else
+        [-1,-2]
+    end
+end
+
+a = [1,2]
+println a
+a = 4
+println a
+a = [true, false]
+println a
+
+[1] + 1
+
+println retArr(true)
+println retArr(false)
