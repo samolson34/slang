@@ -29,6 +29,7 @@ class Token
         LessOrEqual
         Minus
         NotEqual
+        Of
         Or
         ParenthesisL
         ParenthesisR
@@ -37,6 +38,8 @@ class Token
         Print
         Println
         Slash
+        SquareBracketL
+        SquareBracketR
         Star
         Type
         While
@@ -113,6 +116,13 @@ class Lexer
             elsif curChar == ')'
                 take
                 append TT::ParenthesisR
+
+            elsif curChar == '['
+                take
+                append TT::SquareBracketL
+            elsif curChar == ']'
+                take
+                append TT::SquareBracketR
 
             # Star
             elsif curChar == '*'
@@ -283,6 +293,8 @@ class Lexer
                     append TT::End
                 elsif @token == "int" || @token == "bool"
                     append TT::Type
+                elsif @token == "of"
+                    append TT::Of
                 else
                     append TT::Identifier
                 end

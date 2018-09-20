@@ -3,3 +3,24 @@
 a = true
 
 #println (a &= false) || a
+
+def func(int p)
+    if p > 10
+        println p
+        func(p - 1)
+    elf p < 1
+        println p
+        func(p + 1)
+    elf p == 1
+        println p
+        true
+    elf p == 4
+        println p
+        false
+    else
+        println p
+        func(0)
+    end
+end
+
+println func(ARG0)

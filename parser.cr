@@ -307,8 +307,11 @@ class Parser
         if curToken.type == TT::Type
             if curToken.code == "int"
                 v = Variable.new VT::Integer, 0
-            else
+            elsif curToken.code == "bool"
                 v = Variable.new VT::Boolean, false
+            else
+                STDERR.puts "#{lineMsg curToken}Formal type error"
+                exit FAIL
             end
             @i += 1
         else
@@ -358,6 +361,10 @@ class Parser
             RT::Integer
         elsif body[-1].is_a? BooleanExpression
             RT::Boolean
+        elsif body[-1].is_a? IntegerArray
+            RT::IntegerArray
+        elsif body[-1].is_a? BooleanArray
+            RT::BooleanArray
         elsif body[-1].is_a? If
             # Cast because it's an Array of Statement
             ifStatement = body[-1].as If
@@ -396,6 +403,7 @@ class Parser
                         i = 0
                         while value == RT::Placeholder && i < elfRTs.size
                             value = elfRTs[i]
+                            i += 1
                         end
 
                         # If they're all Placeholders, error
@@ -449,6 +457,12 @@ class Parser
         elsif r.is_a? BooleanExpression
             type = VT::Boolean
             value = false
+        elsif r.is_a? IntegerArray
+            type = VT::IntegerArray
+            value = [] of Int32
+        elsif r.is_a? BooleanArray
+            type = VT::BooleanArray
+            value = [] of Bool
         else
             STDERR.puts "#{lineMsg id}Error in variable assignment: \
                 #{id.code}"
@@ -485,8 +499,6 @@ class Parser
 
         unless r.is_a? IntegerExpression | PlaceholderCall
             operatorError operator, r, IntegerExpression, "R"
-            # All of a sudden this isn't detected :(
-            exit FAIL
         end
 
         if operator.type == TT::AssignMultiply
@@ -539,8 +551,6 @@ class Parser
 
         unless r.is_a? BooleanExpression | PlaceholderCall
             operatorError operator, r, BooleanExpression, "R"
-            # 26.1 and this statement is needed -.-
-            exit FAIL
         end
 
         if operator.type == TT::AssignAnd
@@ -590,6 +600,10 @@ class Parser
             IntegerCall.new id.code, actuals, id.line
         elsif env.functions[id.code].returnType == RT::Boolean
             BooleanCall.new id.code, actuals, id.line
+        elsif env.functions[id.code].returnType == RT::IntegerArray
+            IntegerArrayCall.new id.code, actuals, id.line
+        elsif env.functions[id.code].returnType == RT::BooleanArray
+            BooleanArrayCall.new id.code, actuals, id.line
         else
             VoidCall.new id.code, actuals, id.line
         end
@@ -842,6 +856,9 @@ class Parser
             bool = Boolean.new (curToken.code == "true"), curToken.line
             @i += 1
             bool
+        elsif curToken.type == TT::SquareBracketL
+            # Array literal
+            array env
         elsif curToken.type == TT::Identifier
             id = curToken
 
@@ -890,8 +907,144 @@ class Parser
         @i += 1
         if env.variables[id.code].type.is_a? VT::Integer
             IntegerVariable.new id.code, id.line
-        else
+        elsif env.variables[id.code].type.is_a? VT::Boolean
             BooleanVariable.new id.code, id.line
+        elsif env.variables[id.code].type.is_a? VT::IntegerArray
+            IntegerArrayVariable.new id.code, id.line
+        elsif env.variables[id.code].type.is_a? VT::BooleanArray
+            BooleanArrayVariable.new id.code, id.line
+        else
+            STDERR.puts "#{lineMsg id}getVariable error"
+            exit FAIL
         end
+    end
+    
+    private def array(env)
+        line = curToken.line
+
+        # [
+        @i += 1
+
+        if curToken.type == TT::SquareBracketR
+            # Empty array
+            @i += 1
+
+            unless curToken.type == TT::Of && curToken(1).type == TT::Type
+                STDERR.puts "#{lineMsg curToken}Empty array type must be \
+                    specified like: [] of <type>"
+                exit FAIL
+            end
+            @i += 1
+
+            type = curToken
+            if type.code == "int"
+                arr = IntegerArrayLiteral.new ([] of IntegerExpression), line
+            else
+                arr = BooleanArrayLiteral.new ([] of BooleanExpression), line
+            end
+            @i += 1
+        else
+            element = expression env
+            if element.is_a? IntegerExpression
+                arr = intArray env, element, line
+            elsif element.is_a? BooleanExpression
+                arr = boolArray env, element, line
+            else
+                STDERR.puts "#{lineMsg element}Array element type error"
+                exit FAIL
+            end
+        end
+
+        arr
+    end
+
+    private def intArray(env, element, line)
+        if curToken.type != TT::Comma &&
+                curToken.type != TT::SquareBracketR
+
+            STDERR.puts "#{lineMsg curToken}Separate array elements \
+                with comma"
+            exit FAIL
+        end
+
+        elements = [] of IntegerExpression
+        elements << element
+
+        unless curToken.type == TT::SquareBracketR
+            # ,
+            @i += 1
+
+            loop do
+                element = expression env
+
+                unless element.is_a? IntegerExpression
+                    STDERR.puts "#{lineMsg element}Expected
+                        IntegerExpression, not #{element.class}"
+                    exit FAIL
+                end
+
+                if curToken.type != TT::Comma &&
+                        curToken.type != TT::SquareBracketR
+
+                    STDERR.puts "#{lineMsg curToken}Separate array elements \
+                        with comma"
+                    exit FAIL
+                end
+
+                elements << element
+
+                break unless curToken.type == TT::Comma
+                @i += 1
+            end
+        end
+
+        # ]
+        @i += 1
+
+        IntegerArrayLiteral.new elements, line
+    end
+
+    private def boolArray(env, element, line)
+        if curToken.type != TT::Comma &&
+                curToken.type != TT::SquareBracketR
+
+            STDERR.puts "#{lineMsg curToken}Separate array elements \
+                with comma"
+            exit FAIL
+        end
+        @i += 1
+
+        elements = [] of BooleanExpression
+        elements << element
+
+        unless curToken.type == TT::SquareBracketR
+            loop do
+                element = expression env
+
+                unless element.is_a? BooleanExpression
+                    STDERR.puts "#{lineMsg element}Expected
+                        IntegerExpression, not #{element.class}"
+                    exit FAIL
+                end
+
+                if curToken.type != TT::Comma &&
+                        curToken.type != TT::SquareBracketR
+
+                    STDERR.puts "#{lineMsg curToken}Separate array elements \
+                        with comma"
+                    exit FAIL
+                end
+
+                elements << element
+
+                break unless curToken.type == TT::Comma
+                @i += 1
+            end
+        end
+
+        # ]
+        @i += 1
+
+        BooleanArrayLiteral.new elements, line
     end
 end

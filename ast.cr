@@ -13,11 +13,15 @@ class Variable
     enum VariableType
         Boolean
         Integer
+        BooleanArray
+        IntegerArray
 
         def match(expr : Expression | PlaceholderCall)
             expr.is_a? PlaceholderCall ||
                 (self == Boolean && expr.is_a? BooleanExpression) ||
-                (self == Integer && expr.is_a? IntegerExpression)
+                (self == Integer && expr.is_a? IntegerExpression) ||
+                (self == BooleanArray && expr.is_a? BooleanArray) ||
+                (self == IntegerArray && expr.is_a? IntegerArray)
         end
     end
 
@@ -26,7 +30,7 @@ class Variable
 
     def initialize(
         @type : VariableType,
-        @value : Int32 | Bool,
+        @value : Int32 | Bool | Array(Int32) | Array(Bool),
         @global = false
     ) end
 
@@ -41,6 +45,8 @@ class Function
     enum ReturnType
         Boolean
         Integer
+        BooleanArray
+        IntegerArray
         Void
         Placeholder
 
@@ -124,7 +130,7 @@ end
 
 class Println < Print
     def evaluate(env)
-        p @message.evaluate env
+        puts @message.evaluate env
     end
 end
 
@@ -268,6 +274,7 @@ class Definition < Statement
         end
 
         env.functions[@id] = Function.new @formals, @body, @returnType
+        return
     end
 end
 
@@ -308,8 +315,15 @@ class VoidCall < Statement
         @actuals.each_with_index do |actual, i|
             if actual.is_a? IntegerExpression
                 t = Variable::VariableType::Integer
-            else
+            elsif actual.is_a? BooleanExpression
                 t = Variable::VariableType::Boolean
+            elsif actual.is_a? IntegerArray
+                t = Variable::VariableType::IntegerArray
+            elsif actual.is_a? BooleanArray
+                t = Variable::VariableType::BooleanArray
+            else
+                STDERR.puts "Actual type error"
+                exit 1
             end
 
             id = func.formals[i].id
@@ -317,6 +331,7 @@ class VoidCall < Statement
         end
 
         func.body.evaluate scope
+        return
     end
 end
 
@@ -326,6 +341,7 @@ abstract class Expression < Statement
 
     def parenthesize
         @parenthesized = true
+        return
     end
 end
 
@@ -352,6 +368,7 @@ class PlaceholderCall
 
     def parenthesize
         @parenthesized = true
+        return
     end
 end
 
@@ -406,8 +423,15 @@ class IntegerCall < IntegerExpression
         @actuals.each_with_index do |actual, i|
             if actual.is_a? IntegerExpression
                 t = Variable::VariableType::Integer
-            else
+            elsif actual.is_a? BooleanExpression
                 t = Variable::VariableType::Boolean
+            elsif actual.is_a? IntegerArray
+                t = Variable::VariableType::IntegerArray
+            elsif actual.is_a? BooleanArray
+                t = Variable::VariableType::BooleanArray
+            else
+                STDERR.puts "Actual type error"
+                exit 1
             end
 
             id = func.formals[i].id
@@ -573,8 +597,15 @@ class BooleanCall < BooleanExpression
         @actuals.each_with_index do |actual, i|
             if actual.is_a? IntegerExpression
                 t = Variable::VariableType::Integer
-            else
+            elsif actual.is_a? BooleanExpression
                 t = Variable::VariableType::Boolean
+            elsif actual.is_a? IntegerArray
+                t = Variable::VariableType::IntegerArray
+            elsif actual.is_a? BooleanArray
+                t = Variable::VariableType::BooleanArray
+            else
+                STDERR.puts "Actual type error"
+                exit 1
             end
 
             id = func.formals[i].id
@@ -685,8 +716,8 @@ abstract class LogicalOperator < BooleanExpression
     def initialize(@a : BooleanExpression, @b : BooleanExpression, @line) end
 
     def initialize(
-        @a : Expression | PlaceholderCall,
-        @b : Expression | PlaceholderCall,
+        @a : BooleanExpression | PlaceholderCall,
+        @b : BooleanExpression | PlaceholderCall,
         @line
     )
         unless @a.is_a? PlaceholderCall || @b.is_a? PlaceholderCall
@@ -698,12 +729,197 @@ end
 
 class Or < LogicalOperator
     def evaluate(env)
-        @a.evaluate(env) || @b.evaluate(env)
+        value = @a.evaluate(env) || @b.evaluate(env)
+        unless value.is_a? Bool
+            STDERR.puts "Line #{@a.line} -> Or return type error"
+            exit 1
+        end
+        value
     end
 end
 
 class And < LogicalOperator
     def evaluate(env)
-        @a.evaluate(env) && @b.evaluate(env)
+        value = @a.evaluate(env) && @b.evaluate(env)
+        unless value.is_a? Bool
+            STDERR.puts "Line #{@a.line} -> Or return type error"
+            exit 1
+        end
+        value
+    end
+end
+
+abstract class ArrayExpression < Expression
+end
+
+abstract class IntegerArray < ArrayExpression
+end
+
+abstract class BooleanArray < ArrayExpression
+end
+
+class IntegerArrayLiteral < IntegerArray
+    def initialize(@array : Array(IntegerExpression), @line) end
+
+    def evaluate(env)
+        value = [] of Int32
+        @array.each do |element|
+            value << element.evaluate env
+        end
+        value
+    end
+end
+
+class BooleanArrayLiteral < BooleanArray
+    def initialize(@array : Array(BooleanExpression), @line) end
+
+    def evaluate(env)
+        value = [] of Bool
+        @array.each do |element|
+            value << element.evaluate env
+        end
+        value
+    end
+end
+
+class IntegerArrayVariable < IntegerArray
+    getter id
+
+    def initialize(@id : String, @line) end
+
+    def evaluate(env)
+        value = env.variables[@id].value
+        unless value.is_a? Array(Int32)
+            STDERR.puts "Line #{@line} -> IntegerArray variable error"
+            exit 1
+        end
+        value
+    end
+end
+
+class BooleanArrayVariable < BooleanArray
+    getter id
+
+    def initialize(@id : String, @line) end
+
+    def evaluate(env)
+        value = env.variables[@id].value
+        unless value.is_a? Array(Bool)
+            STDERR.puts "Line #{@line} -> BooleanArray variable error"
+            exit 1
+        end
+        value
+    end
+end
+
+class IntegerArrayCall < IntegerArray
+    def initialize(
+        @id : String,
+        @actuals : Array(Expression | PlaceholderCall),
+        @line
+    ) end
+
+    def evaluate(env)
+        func = env.functions[@id]
+
+        unless func.returnType == Function::ReturnType::IntegerArray
+            STDERR.puts "IntegerArrayCall error"
+            exit 1
+        end
+
+        # Get global variables
+        variables = {} of String => Variable
+        env.variables.each do |variable|
+            if variable.last.global
+                variables[variable.first] = variable.last
+            end
+        end
+
+        scope = Environment.new(
+            variables,
+            env.functions,
+            env.level + 1
+        )
+        @actuals.each_with_index do |actual, i|
+            if actual.is_a? IntegerExpression
+                t = Variable::VariableType::Integer
+            elsif actual.is_a? BooleanExpression
+                t = Variable::VariableType::Boolean
+            elsif actual.is_a? IntegerArray
+                t = Variable::VariableType::IntegerArray
+            elsif actual.is_a? BooleanArray
+                t = Variable::VariableType::BooleanArray
+            else
+                STDERR.puts "Actual type error"
+                exit 1
+            end
+
+            id = func.formals[i].id
+            scope.variables[id] = Variable.new t, actual.evaluate env
+        end
+
+        value = func.body.evaluate scope
+        unless value.is_a? Array(Int32)
+            STDERR.puts "IntegerArrayCall return error: #{@id}"
+            exit 1
+        end
+
+        value
+    end
+end
+
+class BooleanArrayCall < BooleanArray
+    def initialize(
+        @id : String,
+        @actuals : Array(Expression | PlaceholderCall),
+        @line
+    ) end
+
+    def evaluate(env)
+        func = env.functions[@id]
+
+        unless func.returnType == Function::ReturnType::BooleanArray
+            STDERR.puts "BooleanArrayCall error"
+            exit 1
+        end
+
+        # Get global variables
+        variables = {} of String => Variable
+        env.variables.each do |variable|
+            if variable.last.global
+                variables[variable.first] = variable.last
+            end
+        end
+
+        scope = Environment.new(
+            variables,
+            env.functions,
+            env.level + 1
+        )
+        @actuals.each_with_index do |actual, i|
+            if actual.is_a? IntegerExpression
+                t = Variable::VariableType::Integer
+            elsif actual.is_a? BooleanExpression
+                t = Variable::VariableType::Boolean
+            elsif actual.is_a? IntegerArray
+                t = Variable::VariableType::IntegerArray
+            elsif actual.is_a? BooleanArray
+                t = Variable::VariableType::BooleanArray
+            else
+                STDERR.puts "Actual type error"
+                exit 1
+            end
+
+            id = func.formals[i].id
+            scope.variables[id] = Variable.new t, actual.evaluate env
+        end
+
+        value = func.body.evaluate scope
+        unless value.is_a? Array(Bool)
+            STDERR.puts "BooleanArrayCall return error: #{@id}"
+            exit 1
+        end
+
+        value
     end
 end
