@@ -33,7 +33,6 @@ variables["ARGC"] = Variable.new(
     true  # global variable
 )
 
-
 # Get command line arguments
 argn = [] of Int32
 

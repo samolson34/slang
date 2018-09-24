@@ -1014,12 +1014,14 @@ class Parser
                 with comma"
             exit FAIL
         end
-        @i += 1
 
         elements = [] of BooleanExpression
         elements << element
 
         unless curToken.type == TT::SquareBracketR
+            # ,
+            @i += 1
+
             loop do
                 element = expression env
 
