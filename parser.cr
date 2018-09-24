@@ -337,6 +337,8 @@ class Parser
     # Called by conditional, whileLoop, define
     private def getBody(env, source, boundaries = [TT::End])
         body = [] of Statement | PlaceholderCall
+
+        # Check for end (or elf or else)
         until boundaries.includes? curToken.type
             if curToken.type == TT::EOF
                 STDERR.puts "#{lineMsg curToken}Expected end after \

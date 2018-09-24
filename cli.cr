@@ -33,21 +33,26 @@ variables["ARGC"] = Variable.new(
     true  # global variable
 )
 
+
 # Get command line arguments
+argn = [] of Int32
+
 argv.each_with_index do |arg, i|
     # Arguments must be digits, optionally negative (until support for
     # strings)
     if arg =~ /^-?\d+$/
-        variables["ARG#{i}"] = Variable.new(
-            Variable::VariableType::Integer,
-            arg.to_i,
-            true  # global variable
-        )
+        argn << arg.to_i
     else
         STDERR.puts "Invalid argument: #{arg}"
         exit FAIL
     end
 end
+
+variables["ARGV"] = Variable.new(
+    Variable::VariableType::IntegerArray,
+    argn,
+    true  # global variable
+)
 
 # Give parser deep copy of variables so nothing is altered for the program
 program = parser.parse Environment.new variables.clone
