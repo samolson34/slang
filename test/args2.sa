@@ -1,0 +1,4 @@
+#!/home/bassbash/git-repos/slang/slang
+
+println ARGC
+println ARGV
