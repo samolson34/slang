@@ -1,5 +1,5 @@
 ###slang (Sam's Language)
-Written in Crystal.
+Written in [Crystal](https://crystal-lang.org/).
 
 [Install Crystal](https://crystal-lang.org/docs/installation/)
 
@@ -23,8 +23,9 @@ statements, and comments.
 
 * Identifiers can have hyphens and more.  
 * Write everything in one line if you want.  
-* No def inside a def.  
-* The primary goal is to be a learning vehicle.  
+* Function return type inference.  
+* [Precedence readability enforced.](https://foonathan.net/blog/2017/07/24/operator-precedence.html)  
+* The primary goal is to be a learning vehicle.
 
 ----
 ```
