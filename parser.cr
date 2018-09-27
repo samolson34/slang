@@ -388,7 +388,7 @@ class Parser
                 i = 0
                 while match && i < elfRTs.size
                     # Check both if and else in case one is Placeholder
-                    match &= elfRTs[i].match(ifRT) && elfRTs[i].match(elseRT)
+                    match = elfRTs[i].match(ifRT) && elfRTs[i].match(elseRT)
                     i += 1
                 end
 
@@ -420,14 +420,14 @@ class Parser
                     end
                 else
                     expr = ifStatement.elfBodies[i - 1].last.statements[-1]
-                    STDERR.puts "#{lineMsg expr}Cannot determine return type \
-                        of function #{id}"
+                    STDERR.puts "#{lineMsg expr}Cannot determine return \
+                        type of function #{id}"
                     exit FAIL
                 end
             else
                 if ifStatement.elseBody.statements.empty?
-                    # elseBody is empty because it's literally empty, or there
-                    # is no else (returns Void)
+                    # elseBody is empty because it's literally empty, or
+                    # there is no else (returns Void)
                     expr = ifStatement.ifBody.statements[-1]
                 else
                     # Else return type doesn't match
@@ -620,11 +620,11 @@ class Parser
         # Some people are in here with parentheses but no arguments
         unless curToken.type == TT::ParenthesisR
             loop do
-                # Must not be too many arguments. Check first to catch call to
-                # function with 0 parameters
+                # Must not be too many arguments. Check first to catch call
+                # to function with 0 parameters
                 unless actuals.size < numArgs
-                    STDERR.puts "#{lineMsg id}Too many arguments to function \
-                        #{id.code}. Expected #{numArgs}."
+                    STDERR.puts "#{lineMsg id}Too many arguments to \
+                        function #{id.code}. Expected #{numArgs}."
                     exit FAIL
                 end
 
@@ -868,8 +868,16 @@ class Parser
                     (curToken(1).type != TT::ParenthesisL ||
                         !env.functions.has_key? id.code)
 
-                # Use of variable value
-                getVariable env
+                if curToken(1).type == TT::SquareBracketL &&
+                        [VT::IntegerArray, VT::BooleanArray].
+                            includes? env.variables[id.code].type
+
+                    # Array access
+                    access env
+                else
+                    # Use of variable value
+                    getVariable env
+                end
             elsif env.functions.has_key? id.code
                 value = call env
 
@@ -907,13 +915,13 @@ class Parser
     private def getVariable(env)
         id = curToken
         @i += 1
-        if env.variables[id.code].type.is_a? VT::Integer
+        if env.variables[id.code].type == VT::Integer
             IntegerVariable.new id.code, id.line
-        elsif env.variables[id.code].type.is_a? VT::Boolean
+        elsif env.variables[id.code].type == VT::Boolean
             BooleanVariable.new id.code, id.line
-        elsif env.variables[id.code].type.is_a? VT::IntegerArray
+        elsif env.variables[id.code].type == VT::IntegerArray
             IntegerArrayVariable.new id.code, id.line
-        elsif env.variables[id.code].type.is_a? VT::BooleanArray
+        elsif env.variables[id.code].type == VT::BooleanArray
             BooleanArrayVariable.new id.code, id.line
         else
             STDERR.puts "#{lineMsg id}getVariable error"
@@ -1050,5 +1058,32 @@ class Parser
         @i += 1
 
         BooleanArrayLiteral.new elements, line
+    end
+
+    def access(env)
+        id = curToken
+        @i += 1
+
+        # [
+        operator = curToken
+        @i += 1
+
+        index = expression env
+        unless index.is_a? IntegerExpression
+            operatorError operator, index, IntegerExpression
+            exit FAIL
+        end
+
+        unless curToken.type == TT::SquareBracketR
+            STDERR.puts "#{lineMsg curToken}Expected ]"
+            exit FAIL
+        end
+        @i += 1
+
+        if env.variables[id.code].type == VT::IntegerArray
+            IntegerArrayElement.new id.code, index, id.line
+        else
+            BooleanArrayElement.new id.code, index, id.line
+        end
     end
 end

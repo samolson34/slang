@@ -457,6 +457,39 @@ class Integer < IntegerExpression
     end
 end
 
+class IntegerArrayElement < IntegerExpression
+    def initialize(@id : String, @index : IntegerExpression, @line) end
+
+    def initialize(
+        @id : String,
+        @index : IntegerExpression | PlaceholderCall,
+        @line
+    ) end
+
+    def evaluate(env)
+        i = @index.evaluate env
+
+        unless i.is_a? Int32
+            STDERR.puts "Index value error"
+            exit 1
+        end
+
+        arr = env.variables[@id].value
+
+        unless arr.is_a? Array(Int32)
+            STDERR.puts "Array error"
+            exit 1
+        end
+
+        if i >= arr.size
+            STDERR.puts "Line #{@line} -> Index #{i} out of bounds"
+            exit 1
+        end
+
+        arr[i]
+    end
+end
+
 # Operator which takes one or more Integers
 abstract class ArithmeticOperator < IntegerExpression
     def initialize(@a : IntegerExpression, @line) end
@@ -628,6 +661,39 @@ class Boolean < BooleanExpression
 
     def evaluate(env)
         @value
+    end
+end
+
+class BooleanArrayElement < BooleanExpression
+    def initialize(@id : String, @index : IntegerExpression, @line) end
+
+    def initialize(
+        @id : String,
+        @index : IntegerExpression | PlaceholderCall,
+        @line
+    ) end
+
+    def evaluate(env)
+        i = @index.evaluate env
+
+        unless i.is_a? Int32
+            STDERR.puts "Index value error"
+            exit 1
+        end
+
+        arr = env.variables[@id].value
+
+        unless arr.is_a? Array(Bool)
+            STDERR.puts "Array error"
+            exit 1
+        end
+
+        if i >= arr.size
+            STDERR.puts "Line #{@line} -> Index #{i} out of bounds"
+            exit 1
+        end
+
+        arr[i]
     end
 end
 

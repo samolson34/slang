@@ -2,3 +2,9 @@
 
 println ARGC
 println ARGV
+
+i = 0
+while i < ARGC
+    println ARGV[i]
+    i ++
+end
