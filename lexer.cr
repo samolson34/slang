@@ -117,6 +117,7 @@ class Lexer
                 take
                 append TT::ParenthesisR
 
+            # Brackets
             elsif curChar == '['
                 take
                 append TT::SquareBracketL
@@ -264,7 +265,7 @@ class Lexer
 
             # Identifier
             # Must start with letter, not just ASCII. Follow with any letter
-            # or number or symbol in set: !@%$^&|*i\-_=+/?<>`~
+            # or number or symbol in set: !@%$^&|*\-_=+/?<>`~
             elsif curChar.letter?
                 while @i < @src.size && (
                         curChar.alphanumeric? ||
