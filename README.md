@@ -1,4 +1,4 @@
-###slang (Sam's Language)
+### slang (Sam's Language)
 Written in [Crystal](https://crystal-lang.org/).
 
 [Install Crystal](https://crystal-lang.org/docs/installation/)
